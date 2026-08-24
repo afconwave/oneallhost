@@ -34,8 +34,7 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
       </head>
-      <body className="min-h-screen bg-white text-[#111111] font-sans antialiased selection:bg-[#1B6FC9] selection:text-white">
-        <SmoothScroll />
+      <body className="min-h-screen bg-surface-0 text-ink font-sans antialiased selection:bg-brand-blue selection:text-white">
         {children}
       </body>
     </html>

@@ -1,0 +1,27 @@
+{
+  "name": "oneallhost",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "turbo run dev",
+    "dev:web": "pnpm --filter @oneallhost/web dev",
+    "dev:admin": "pnpm --filter @oneallhost/admin dev",
+    "dev:api": "pnpm --filter @oneallhost/api dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "clean": "turbo run clean"
+  },
+  "devDependencies": {
+    "turbo": "^2.4.4",
+    "typescript": "^5.8.2"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "sharp",
+      "core-js",
+      "@turbo/windows-64"
+    ]
+  },
+  "packageManager": "pnpm@11.9.0"
+}

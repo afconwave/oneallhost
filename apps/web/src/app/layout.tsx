@@ -1,6 +1,5 @@
 import './globals.css';
 import type { Metadata } from 'next';
-import { SmoothScroll } from '../components/SmoothScroll';
 
 export const metadata: Metadata = {
   title: 'Oneallhost — Domain Registration, Subdomain Leasing & Cloud Hosting',

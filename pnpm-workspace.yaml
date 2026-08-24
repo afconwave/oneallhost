@@ -1,6 +1,7 @@
 packages:
   - 'apps/*'
   - 'packages/*'
-onlyBuiltDependencies:
-  - sharp
-  - core-js
+allowBuilds:
+  core-js: true
+  sharp: true
+  '@turbo/windows-64': true

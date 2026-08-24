@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "turbo run dev",
+    "dev": "bash scripts/dev.sh",
     "dev:web": "pnpm --filter @oneallhost/web dev",
     "dev:admin": "pnpm --filter @oneallhost/admin dev",
     "dev:api": "pnpm --filter @oneallhost/api dev",
@@ -23,5 +23,9 @@
       "@turbo/windows-64"
     ]
   },
-  "packageManager": "pnpm@11.9.0"
+  "packageManager": "pnpm@11.9.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
 }

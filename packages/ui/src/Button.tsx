@@ -10,8 +10,8 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'outline', size = 'md', isLoading = false, children, disabled, ...props }, ref) => {
-    const baseStyles = 'inline-flex items-center justify-center font-medium rounded transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#1B6FC9] focus-visible:outline-offset-2 disabled:opacity-50 disabled:pointer-events-none select-none';
-    
+    const baseStyles = 'inline-flex items-center justify-center font-medium rounded transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-blue focus-visible:outline-offset-2 disabled:opacity-50 disabled:pointer-events-none select-none';
+
     // Thin UI sizes: sm (32px), md (38px), lg (42px)
     const sizeStyles = {
       sm: 'h-8 px-3 text-xs tracking-tight gap-1.5',
@@ -20,10 +20,10 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     };
 
     const variantStyles = {
-      primary: 'bg-[#0D3B85] hover:bg-[#1B6FC9] text-white border border-transparent shadow-none',
-      secondary: 'bg-[#1B6FC9] hover:bg-[#0D3B85] text-white border border-transparent',
-      outline: 'bg-white hover:bg-[#FAFAF9] text-[#111111] border border-[#DCDDD8] hover:border-[#6B6E68]',
-      ghost: 'bg-transparent hover:bg-[#F3F4F1] text-[#111111] border border-transparent',
+      primary: 'bg-brand-blue-deep hover:bg-brand-blue text-white border border-transparent shadow-none',
+      secondary: 'bg-brand-blue hover:bg-brand-blue-deep text-white border border-transparent',
+      outline: 'bg-white hover:bg-surface-1 text-ink border border-strong hover:border-muted',
+      ghost: 'bg-transparent hover:bg-surface-2 text-ink border border-transparent',
       danger: 'bg-white hover:bg-red-50 text-red-700 border border-red-200 hover:border-red-400',
     };
 

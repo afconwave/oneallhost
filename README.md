@@ -11,7 +11,7 @@
 ---
 
 ## 1. Monorepo Architecture
-
+ 
 The repository is structured as a Turborepo monorepo powered by PNPM workspaces:
 
 ```

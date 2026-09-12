@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Card, Badge, Button, Input, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@oneallhost/ui';
+import { Card, Badge, Button, Input, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, toast } from '@oneallhost/ui';
 import { Globe, RefreshCw, AlertTriangle, CheckCircle2 } from 'lucide-react';
 
 export default function AdminDomainsPage() {
@@ -36,7 +36,12 @@ export default function AdminDomainsPage() {
   ]);
 
   const handleManualRenew = (id: string) => {
-    alert(`[ADMIN OVERRIDE] Sent upstream renew command to ResellerClub API for ${id}.`);
+    toast.success(`Sent upstream renew command to ResellerClub API for ${id}.`, {
+      action: {
+        label: 'View Domain',
+        onClick: () => console.log('Opening domain details...'),
+      }
+    });
   };
 
   const handleForceExpire = (id: string) => {

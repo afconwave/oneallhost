@@ -10,19 +10,19 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'outline', size = 'md', isLoading = false, children, disabled, ...props }, ref) => {
-    const baseStyles = 'inline-flex items-center justify-center font-medium rounded transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-blue focus-visible:outline-offset-2 disabled:opacity-50 disabled:pointer-events-none select-none';
+    const baseStyles = 'inline-flex items-center justify-center font-bold rounded-xl transition-all duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-blue focus-visible:outline-offset-2 disabled:opacity-50 disabled:pointer-events-none select-none max-w-full text-center leading-tight active:scale-[0.98]';
 
-    // Thin UI sizes: sm (32px), md (38px), lg (42px)
+    // Touch-friendly responsive sizes
     const sizeStyles = {
-      sm: 'h-8 px-3 text-xs tracking-tight gap-1.5',
-      md: 'h-[38px] px-4 text-sm tracking-tight gap-2',
-      lg: 'h-10 px-5 text-sm tracking-tight gap-2.5',
+      sm: 'min-h-[32px] sm:min-h-[34px] px-3 py-1.5 text-xs tracking-tight gap-1.5',
+      md: 'min-h-[38px] sm:min-h-[42px] px-4 py-2 text-xs sm:text-sm tracking-tight gap-2',
+      lg: 'min-h-[44px] sm:min-h-[48px] px-5 sm:px-6 py-2.5 text-sm sm:text-base tracking-tight gap-2.5',
     };
 
     const variantStyles = {
-      primary: 'bg-brand-blue-deep hover:bg-brand-blue text-white border border-transparent shadow-none',
-      secondary: 'bg-brand-blue hover:bg-brand-blue-deep text-white border border-transparent',
-      outline: 'bg-white hover:bg-surface-1 text-ink border border-strong hover:border-muted',
+      primary: 'bg-[#0D3B85] hover:bg-[#1B6FC9] text-white border border-transparent shadow-xs hover:shadow-md',
+      secondary: 'bg-[#7CB342] hover:bg-[#4E7525] text-white border border-transparent shadow-xs',
+      outline: 'bg-white hover:bg-surface-1 text-ink border border-strong hover:border-[#0D3B85]',
       ghost: 'bg-transparent hover:bg-surface-2 text-ink border border-transparent',
       danger: 'bg-white hover:bg-red-50 text-red-700 border border-red-200 hover:border-red-400',
     };

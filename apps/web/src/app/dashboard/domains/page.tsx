@@ -17,8 +17,7 @@ import {
   Copy,
   ArrowRight,
 } from 'lucide-react';
-import { DomainSearchBar } from '../../../components/DomainSearchBar';
-import { BulkDomainSearch } from '../../../components/BulkDomainSearch';
+import { DomainSearchBar, BulkDomainSearch } from '@/components/domains';
 
 interface DnsRecord {
   id: string;
@@ -59,7 +58,7 @@ export default function DomainsManagementPage() {
   // Fetch domains dynamically on mount
   const fetchDomains = () => {
     setIsLoading(true);
-    fetch('http://localhost:4000/api/v1/users/domains')
+    fetch('/api/users/domains')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data && Array.isArray(data.domains)) {
@@ -80,7 +79,7 @@ export default function DomainsManagementPage() {
     setEppCode('');
     setCopiedEpp(false);
 
-    fetch(`http://localhost:4000/api/v1/domains/${domain.id}/dns`)
+    fetch(`/api/domains/${domain.id}/dns`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data && Array.isArray(data.records)) {
@@ -103,7 +102,7 @@ export default function DomainsManagementPage() {
 
     setIsSavingRecord(true);
     try {
-      const res = await fetch(`http://localhost:4000/api/v1/domains/${managingDomain.id}/dns`, {
+      const res = await fetch(`/api/domains/${managingDomain.id}/dns`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -128,7 +127,7 @@ export default function DomainsManagementPage() {
   const handleDeleteRecord = async (recId: string) => {
     if (!managingDomain) return;
     try {
-      const res = await fetch(`http://localhost:4000/api/v1/domains/${managingDomain.id}/dns/${recId}`, {
+      const res = await fetch(`/api/domains/${managingDomain.id}/dns/${recId}`, {
         method: 'DELETE',
       });
       if (res.ok) {
@@ -142,7 +141,7 @@ export default function DomainsManagementPage() {
     if (!managingDomain) return;
     const updatedStatus = !managingDomain.whoisPrivacy;
     try {
-      await fetch(`http://localhost:4000/api/v1/domains/${managingDomain.id}/whois`, {
+      await fetch(`/api/domains/${managingDomain.id}/whois`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled: updatedStatus }),
@@ -159,7 +158,7 @@ export default function DomainsManagementPage() {
     if (!managingDomain) return;
     const updatedStatus = !managingDomain.transferLock;
     try {
-      await fetch(`http://localhost:4000/api/v1/domains/${managingDomain.id}/lock`, {
+      await fetch(`/api/domains/${managingDomain.id}/lock`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled: updatedStatus }),
@@ -176,7 +175,7 @@ export default function DomainsManagementPage() {
     if (!managingDomain) return;
     setIsGeneratingEpp(true);
     try {
-      const res = await fetch(`http://localhost:4000/api/v1/domains/${managingDomain.id}/epp`, {
+      const res = await fetch(`/api/domains/${managingDomain.id}/epp`, {
         method: 'POST',
       });
       if (res.ok) {

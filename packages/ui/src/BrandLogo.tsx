@@ -30,10 +30,11 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
       src={getLogoSrc()}
       alt={alt}
       style={{
-        height: `${height}px`,
+        maxHeight: '100%',
         width: 'auto',
         objectFit: 'contain',
         display: 'inline-block',
+        ...(height ? { height: `${height}px` } : {}),
       }}
       className={`select-none ${className}`}
       loading="eager"

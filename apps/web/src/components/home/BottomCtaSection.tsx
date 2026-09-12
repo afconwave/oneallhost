@@ -23,10 +23,10 @@ export const BottomCtaSection: React.FC = () => {
           Register permanent ICANN domains with sub-3-minute Anycast DNS propagation, or start with flexible staging leases and 100% purchase rebates.
         </p>
 
-        <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 pt-4 w-full sm:w-auto max-w-md sm:max-w-none mx-auto">
           <a
             href="#domains"
-            className="inline-flex items-center justify-center font-bold text-sm text-[#0D3B85] bg-white hover:bg-blue-50 rounded-xl h-12 px-8 transition-colors shadow-lg"
+            className="inline-flex items-center justify-center font-bold text-xs sm:text-sm text-[#0D3B85] bg-white hover:bg-blue-50 rounded-xl h-12 px-6 sm:px-8 transition-all shadow-md active:scale-98 w-full sm:w-auto text-center"
           >
             <span>Search Domains</span>
             <i className="fa-solid fa-arrow-right ml-2 text-xs" />
@@ -34,7 +34,7 @@ export const BottomCtaSection: React.FC = () => {
 
           <Link
             href="/rentals"
-            className="inline-flex items-center justify-center font-bold text-sm text-white rounded-xl h-12 px-8 bg-white/10 hover:bg-white/20 border border-white/20 transition-colors shadow-sm"
+            className="inline-flex items-center justify-center font-bold text-xs sm:text-sm text-white rounded-xl h-12 px-6 sm:px-8 bg-white/10 hover:bg-white/20 border border-white/20 transition-all shadow-sm active:scale-98 w-full sm:w-auto text-center"
           >
             <span>Explore Subdomain Leases</span>
           </Link>

@@ -2,8 +2,25 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Badge, Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@oneallhost/ui';
-import { Download, CreditCard, Receipt, FileText, CheckCircle2, Plus, ShieldCheck, RefreshCw, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { Badge, Button, Input, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@oneallhost/ui';
+import {
+  Download,
+  CreditCard,
+  Receipt,
+  FileText,
+  CheckCircle2,
+  Plus,
+  ShieldCheck,
+  RefreshCw,
+  AlertCircle,
+  Eye,
+  EyeOff,
+  Wallet,
+  Zap,
+  ArrowUpRight,
+  X,
+  Smartphone,
+} from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -32,7 +49,17 @@ interface VirtualCardRecord {
   status: string;
 }
 
+interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  balanceUsd: number;
+  balanceXaf: number;
+  autoDebitEnabled: boolean;
+}
+
 export default function BillingManagementPage() {
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [invoices, setInvoices] = useState<PaymentRecord[]>([]);
   const [virtualCards, setVirtualCards] = useState<VirtualCardRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -40,27 +67,49 @@ export default function BillingManagementPage() {
   const [showCardDetails, setShowCardDetails] = useState<boolean>(false);
   const [isCreatingCard, setIsCreatingCard] = useState<boolean>(false);
 
+  // Top-Up Modal State
+  const [topupModalOpen, setTopupModalOpen] = useState<boolean>(false);
+  const [topupAmountUsd, setTopupAmountUsd] = useState<number>(25);
+  const [customAmount, setCustomAmount] = useState<string>('');
+  const [topupMethod, setTopupMethod] = useState<string>('MTN');
+  const [isTopupSubmitting, setIsTopupSubmitting] = useState<boolean>(false);
+  const [topupSuccessMsg, setTopupSuccessMsg] = useState<string | null>(null);
+
+  // Auto-Debit Toggle Loading State
+  const [isUpdatingAutoDebit, setIsUpdatingAutoDebit] = useState<boolean>(false);
+
   const fetchBillingData = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const [invRes, cardRes] = await Promise.all([
-        fetch('http://localhost:4000/api/v1/users/invoices'),
-        fetch('http://localhost:4000/api/v1/payments/virtual-cards'),
+      const [userRes, invRes, cardRes] = await Promise.all([
+        fetch('/api/users/me'),
+        fetch('/api/users/invoices'),
+        fetch('/api/payments/virtual-cards'),
       ]);
 
       if (!invRes.ok || !cardRes.ok) {
         throw new Error('Failed to load billing ledgers from server');
       }
 
-      const invData = await invRes.json();
-      const cardData = await cardRes.json();
+      const [userData, invData, cardData] = await Promise.all([
+        userRes.ok ? userRes.json() : { user: null },
+        invRes.json(),
+        cardRes.json(),
+      ]);
 
-      setInvoices(invData.invoices || []);
-      setVirtualCards(cardData.cards || []);
+      if (userData && userData.user) {
+        setUserProfile(userData.user);
+      }
+      if (invData && Array.isArray(invData.invoices)) {
+        setInvoices(invData.invoices);
+      }
+      if (cardData && Array.isArray(cardData.cards)) {
+        setVirtualCards(cardData.cards);
+      }
     } catch (err: any) {
-      console.error('[Billing Fetch Error]', err);
-      setError(err.message || 'Unable to connect to billing server');
+      console.error('[Billing Ledger Fetch Error]', err);
+      setError(err.message || 'Unable to load billing data');
     } finally {
       setIsLoading(false);
     }
@@ -70,15 +119,82 @@ export default function BillingManagementPage() {
     fetchBillingData();
   }, []);
 
+  // Handle Auto-Debit Toggle
+  const handleToggleAutoDebit = async () => {
+    if (!userProfile) return;
+    const newStatus = !userProfile.autoDebitEnabled;
+    setIsUpdatingAutoDebit(true);
+    try {
+      const res = await fetch('/api/users/wallet/auto-debit', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: newStatus }),
+      });
+      if (res.ok) {
+        setUserProfile((prev) => (prev ? { ...prev, autoDebitEnabled: newStatus } : null));
+      }
+    } catch (e) {
+      console.error('[Auto-Debit Toggle Error]', e);
+    } finally {
+      setIsUpdatingAutoDebit(false);
+    }
+  };
+
+  // Handle Wallet Top-Up
+  const handleTopupSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const finalAmountUsd = customAmount ? parseFloat(customAmount) : topupAmountUsd;
+    if (isNaN(finalAmountUsd) || finalAmountUsd <= 0) return;
+
+    setIsTopupSubmitting(true);
+    setTopupSuccessMsg(null);
+    try {
+      const finalAmountXaf = Math.round(finalAmountUsd * 615.5);
+      const res = await fetch('/api/users/wallet/topup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amountUsd: finalAmountUsd,
+          amountXaf: finalAmountXaf,
+          paymentMethod: `${topupMethod} Mobile Money`,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setTopupSuccessMsg(`Successfully added $${finalAmountUsd.toFixed(2)} USD to your wallet!`);
+        if (data.user) {
+          setUserProfile(data.user);
+        }
+        // Refresh invoices list to include topup
+        const invRes = await fetch('/api/users/invoices');
+        if (invRes.ok) {
+          const invData = await invRes.json();
+          if (invData && Array.isArray(invData.invoices)) {
+            setInvoices(invData.invoices);
+          }
+        }
+        setTimeout(() => {
+          setTopupModalOpen(false);
+          setTopupSuccessMsg(null);
+        }, 1200);
+      }
+    } catch (err) {
+      console.error('[Topup Error]', err);
+    } finally {
+      setIsTopupSubmitting(false);
+    }
+  };
+
   // Issue new virtual card via live API
   const handleIssueVirtualCard = async () => {
     setIsCreatingCard(true);
     try {
-      const res = await fetch('http://localhost:4000/api/v1/payments/virtual-card/issue', {
+      const res = await fetch('/api/payments/virtual-card/issue', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          cardHolder: 'ALOAH MILTON',
+          cardHolder: userProfile?.name || 'ACCOUNT OWNER',
           initialBalanceUsd: 50,
           brand: 'Visa',
         }),
@@ -113,11 +229,13 @@ export default function BillingManagementPage() {
     doc.setTextColor(17, 17, 17);
     doc.text('TAX INVOICE / OFFICIAL RECEIPT', 20, 44);
 
+    const clientEmail = userProfile?.email || 'client@oneallhost.com';
+
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
     doc.text(`Receipt Reference: ${inv.reference || inv.id}`, 20, 52);
     doc.text(`Date of Issue: ${new Date(inv.timestamp).toLocaleDateString()}`, 20, 58);
-    doc.text(`Billed To: ${inv.client} (aloahmilton9@gmail.com)`, 20, 64);
+    doc.text(`Billed To: ${inv.client} (${clientEmail})`, 20, 64);
     doc.text(`Payment Rail: ${inv.method} (Settled)`, 20, 70);
 
     autoTable(doc, {
@@ -148,10 +266,10 @@ export default function BillingManagementPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#EBEBE7] pb-5">
         <div>
           <h1 className="text-2xl font-bold text-[#111111] font-display">
-            Billing, Invoices & Virtual Cards
+            Billing, Wallet & Auto-Debit
           </h1>
           <p className="text-xs text-[#6B6E68] mt-1">
-            Automated tax receipts, mobile money transaction records, and virtual debit card management.
+            Top up your account wallet, manage automated renewal debits, view tax receipts, and configure virtual cards.
           </p>
         </div>
 
@@ -189,6 +307,205 @@ export default function BillingManagementPage() {
       {/* STATES 3 & 4: POPULATED & EMPTY STATES */}
       {!isLoading && !error && (
         <div className="space-y-8">
+          {/* WALLET BALANCE & AUTO-DEBIT CONTROL GRID */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Wallet Balance Card */}
+            <div className="md:col-span-2 bg-gradient-to-br from-[#091F44] via-[#0D3B85] to-[#1B6FC9] text-white rounded-3xl p-6 sm:p-8 shadow-md flex flex-col justify-between relative overflow-hidden">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center">
+                    <Wallet className="w-5 h-5 text-[#7CB342]" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold uppercase tracking-wider text-blue-200">
+                      Account Wallet Balance
+                    </span>
+                    <div className="text-[11px] text-blue-100">Direct one-click payment & automated renews</div>
+                  </div>
+                </div>
+                <Badge variant="success" className="bg-[#7CB342]/20 text-[#7CB342] border-[#7CB342]/30">
+                  Live & Active
+                </Badge>
+              </div>
+
+              <div className="my-6">
+                <div className="text-3xl sm:text-4xl font-bold font-mono tracking-tight text-white">
+                  ${(userProfile?.balanceUsd ?? 0).toFixed(2)}{' '}
+                  <span className="text-lg font-normal text-blue-200">USD</span>
+                </div>
+                <div className="text-sm font-mono text-blue-200 mt-1">
+                  ≈ {(userProfile?.balanceXaf ?? 0).toLocaleString()} XAF
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-white/10">
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={() => setTopupModalOpen(true)}
+                  className="bg-[#DE3723] hover:bg-[#C52D1C] text-white font-bold text-xs gap-1.5 shadow-sm rounded-xl px-5"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Top-Up Balance</span>
+                </Button>
+                <span className="text-[11px] text-blue-200">
+                  Supports MTN, Orange, Wave, Visa, Mastercard & Tether USDT
+                </span>
+              </div>
+            </div>
+
+            {/* Auto-Debit & Renewal Preferences Card */}
+            <div className="bg-white rounded-3xl border border-[#EBEBE7] p-6 shadow-xs flex flex-col justify-between space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Zap className="w-5 h-5 text-[#DE3723]" />
+                  <h3 className="text-sm font-bold text-[#111111]">Auto-Debit for Renewals</h3>
+                </div>
+                <p className="text-xs text-[#6B6E68] leading-relaxed">
+                  Automatically renew expiring domains and hosting services from your account wallet balance without manual intervention.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-[#FAFAF9] border border-[#EBEBE7] space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-[#111111]">Auto-Debit Status</span>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={userProfile?.autoDebitEnabled ?? true}
+                      onChange={handleToggleAutoDebit}
+                      disabled={isUpdatingAutoDebit}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#0D3B85]"></div>
+                  </label>
+                </div>
+                <div className="text-[11px] text-[#6B6E68]">
+                  {userProfile?.autoDebitEnabled
+                    ? 'Enabled: Your domains will renew 7 days prior to expiry.'
+                    : 'Disabled: Manual payment required prior to domain expiration.'}
+                </div>
+              </div>
+
+              <div className="text-[11px] text-[#6B6E68] flex items-center gap-1">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span>Zero service downtime guarantee</span>
+              </div>
+            </div>
+          </div>
+
+          {/* TOP-UP MODAL */}
+          {topupModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+              <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-[#EBEBE7] space-y-6 relative animate-in fade-in zoom-in-95 duration-150">
+                <button
+                  type="button"
+                  onClick={() => setTopupModalOpen(false)}
+                  className="absolute top-6 right-6 text-[#6B6E68] hover:text-[#111111]"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                <div>
+                  <h2 className="text-lg font-bold text-[#111111] flex items-center gap-2">
+                    <Wallet className="w-5 h-5 text-[#0D3B85]" />
+                    <span>Top-Up Account Balance</span>
+                  </h2>
+                  <p className="text-xs text-[#6B6E68] mt-1">
+                    Instant wallet credit via African Mobile Money, Card, or Crypto.
+                  </p>
+                </div>
+
+                {topupSuccessMsg ? (
+                  <div className="p-6 rounded-2xl bg-[#F3F8EC] border border-[#D6E8C2] text-center space-y-2">
+                    <CheckCircle2 className="w-8 h-8 text-[#4E7525] mx-auto" />
+                    <div className="text-xs font-bold text-[#4E7525]">{topupSuccessMsg}</div>
+                  </div>
+                ) : (
+                  <form onSubmit={handleTopupSubmit} className="space-y-4">
+                    {/* Presets */}
+                    <div>
+                      <label className="text-xs font-bold text-[#111111] block mb-2">Select Amount</label>
+                      <div className="grid grid-cols-4 gap-2">
+                        {[10, 25, 50, 100].map((amt) => (
+                          <button
+                            key={amt}
+                            type="button"
+                            onClick={() => {
+                              setTopupAmountUsd(amt);
+                              setCustomAmount('');
+                            }}
+                            className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all ${
+                              topupAmountUsd === amt && !customAmount
+                                ? 'bg-[#0D3B85] text-white border-[#0D3B85]'
+                                : 'bg-[#FAFAF9] border-[#EBEBE7] text-[#111111] hover:border-gray-300'
+                            }`}
+                          >
+                            ${amt}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Custom Amount */}
+                    <div>
+                      <label className="text-xs font-bold text-[#111111] block mb-1">Or Custom USD Amount</label>
+                      <Input
+                        type="number"
+                        placeholder="e.g. 75"
+                        value={customAmount}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                          setCustomAmount(e.target.value);
+                          if (e.target.value) setTopupAmountUsd(0);
+                        }}
+                      />
+                    </div>
+
+                    {/* Payment Method Rail */}
+                    <div>
+                      <label className="text-xs font-bold text-[#111111] block mb-2">Payment Method</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {['MTN', 'Orange', 'Wave', 'Card', 'USDT'].map((m) => (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => setTopupMethod(m)}
+                            className={`p-2.5 rounded-xl border text-xs font-bold text-center transition-all ${
+                              topupMethod === m
+                                ? 'bg-white border-[#0D3B85] ring-2 ring-[#0D3B85]/20 text-[#0D3B85]'
+                                : 'bg-[#FAFAF9] border-[#EBEBE7] text-[#6B6E68] hover:border-gray-300'
+                            }`}
+                          >
+                            {m}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-[#FAFAF9] rounded-xl border border-[#EBEBE7] flex justify-between items-center text-xs">
+                      <span className="text-[#6B6E68]">Estimated Local Total:</span>
+                      <span className="font-mono font-bold text-[#111111]">
+                        {Math.round(
+                          (customAmount ? parseFloat(customAmount) || 0 : topupAmountUsd) * 615.5
+                        ).toLocaleString()}{' '}
+                        XAF
+                      </span>
+                    </div>
+
+                    <Button
+                      variant="primary"
+                      size="lg"
+                      className="w-full bg-[#DE3723] hover:bg-[#C52D1C] text-white font-bold rounded-xl h-11"
+                      isLoading={isTopupSubmitting}
+                    >
+                      Confirm & Fund Wallet
+                    </Button>
+                  </form>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Virtual Cards Section */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -321,7 +638,7 @@ export default function BillingManagementPage() {
                 <Receipt className="w-8 h-8 text-[#6B6E68] mx-auto opacity-40" />
                 <div className="text-sm font-semibold text-[#111111]">No payment history yet</div>
                 <p className="text-xs text-[#6B6E68] max-w-sm mx-auto">
-                  When you register domains or lease subdomains, your itemized tax receipts will be generated here.
+                  When you register domains, lease subdomains, or top-up your wallet, your itemized tax receipts will appear here.
                 </p>
                 <Link href="/#domains" className="inline-block pt-2">
                   <Button variant="primary" size="sm" className="bg-[#0D3B85] hover:bg-[#1B6FC9] text-xs">
@@ -336,3 +653,4 @@ export default function BillingManagementPage() {
     </div>
   );
 }
+

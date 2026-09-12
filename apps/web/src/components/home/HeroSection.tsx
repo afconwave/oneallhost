@@ -4,7 +4,7 @@ import React, { useRef } from 'react';
 import Link from 'next/link';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useDotGrid } from '../../hooks/useDotGrid';
-import { DomainSearchBar } from '../DomainSearchBar';
+import { DomainSearchBar } from '../domains/DomainSearchBar';
 
 export const HeroSection: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -14,72 +14,69 @@ export const HeroSection: React.FC = () => {
   useDotGrid(canvasRef);
 
   return (
-    <section className="relative w-full min-h-screen flex items-center justify-center overflow-hidden">
-      {/* 1. Background: Real Photo from public/images/DomainandHosting/hero.png */}
+    <section className="relative w-full min-h-[92vh] sm:min-h-screen flex items-center justify-center overflow-hidden bg-[#091F44]">
+      {/* 1. Background: Real Photo from public/images/DomainandHosting/hero.png with Seamless Responsive Centering */}
       <img
         src="/images/DomainandHosting/hero.png"
-        alt="Oneallhost Vision"
-        className="absolute inset-0 w-full h-full object-cover pointer-events-none z-0"
+        alt="Oneallhost Infrastructure"
+        className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none z-0 scale-105 transition-transform duration-1000"
       />
 
-      {/* 2. Neutral Dark Base Overlay for Text Contrast */}
-      <div className="absolute inset-0 bg-black/35 pointer-events-none z-[1]" />
+      {/* 2. Neutral Dark Base Overlay for High Text Contrast */}
+      <div className="absolute inset-0 bg-black/40 pointer-events-none z-[1]" />
 
-      {/* 3. Brand Color-Tinted Gradient Overlay: Blue-Deep to Brand-Green only */}
+      {/* 3. Brand Color-Tinted Seamless Gradient & Vignette Overlay */}
       <div
         className="absolute inset-0 pointer-events-none z-[2]"
         style={{
-          background: 'linear-gradient(to bottom, rgba(13, 59, 133, 0.55), rgba(124, 179, 66, 0.35))',
+          background:
+            'radial-gradient(circle at center, rgba(9, 31, 68, 0.45) 0%, rgba(7, 23, 54, 0.85) 100%), linear-gradient(to bottom, rgba(13, 59, 133, 0.6) 0%, rgba(124, 179, 66, 0.25) 100%)',
         }}
       />
 
-      {/* 4. Interactive Dot-Grid Canvas Layer (Tracked Mouse Repulse) */}
+      {/* 4. Interactive Dot-Grid Canvas Layer (Touch-Safe & Mobile Optimized) */}
       <canvas
         ref={canvasRef}
-        className="absolute inset-0 w-full h-full pointer-events-auto z-[3]"
+        className="absolute inset-0 w-full h-full pointer-events-none md:pointer-events-auto z-[3]"
       />
 
-      {/* 5. Foreground Content (Highest z-index) */}
+      {/* 5. Foreground Content */}
       <motion.div
-        initial={shouldReduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+        initial={shouldReduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: 'easeOut' }}
-        className="relative z-10 w-full max-w-5xl mx-auto px-4 sm:px-6 py-20 flex flex-col items-center text-center space-y-8"
+        transition={{ duration: 0.5, ease: 'easeOut' }}
+        className="relative z-10 w-full max-w-5xl mx-auto px-4 sm:px-6 py-16 sm:py-24 flex flex-col items-center text-center space-y-6 sm:space-y-8"
       >
-        <div className="space-y-4 max-w-3xl">
-          <h1
-            className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight font-display text-white drop-shadow-sm"
-          >
-            All-in-one domain names and cloud hosting
+        <div className="space-y-3 sm:space-y-4 max-w-3xl">
+          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight font-display text-white leading-[1.15] neon-hero-title">
+            All-in-one domain names &amp; cloud hosting
           </h1>
 
-          <p
-            className="text-base sm:text-lg max-w-2xl mx-auto font-normal leading-relaxed text-white/90 drop-shadow-xs"
-          >
-            Register permanent ICANN domains with sub-3-minute Anycast DNS propagation, lease staging subdomains with 100% conversion rebates, and settle instantly with local Mobile Money.
+          <p className="text-sm sm:text-base max-w-xl mx-auto font-medium leading-relaxed text-blue-100/90 drop-shadow-xs">
+            Register ICANN domains with sub-3-minute Anycast DNS and settle instantly with native Mobile Money.
           </p>
         </div>
 
-        {/* Live Namecheap XML Domain Search Bar */}
+
+        {/* Live Domain Search Bar */}
         <div className="w-full max-w-3xl">
           <DomainSearchBar />
         </div>
 
-        {/* Action Controls */}
-        <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
+        {/* Action Controls - Fully Responsive for Mobile & Desktop */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-2.5 sm:gap-3 w-full sm:w-auto pt-2 max-w-md sm:max-w-none mx-auto">
           <a
             href="#domains"
-            className="inline-flex items-center justify-center font-bold text-xs text-white rounded-[8px] h-[38px] px-6 transition-colors shadow-sm"
-            style={{ backgroundColor: '#0D3B85' }}
+            className="inline-flex items-center justify-center font-bold text-xs sm:text-sm text-white rounded-xl h-11 sm:h-12 px-5 sm:px-6 transition-all shadow-sm bg-[#0D3B85] hover:bg-[#1B6FC9] w-full sm:w-auto text-center"
           >
             Explore Domain Extensions
           </a>
 
           <Link
             href="/rentals"
-            className="inline-flex items-center justify-center font-semibold text-xs text-white rounded-[8px] h-[38px] px-6 bg-black/40 hover:bg-black/60 border border-white/30 transition-colors shadow-sm"
+            className="inline-flex items-center justify-center font-bold text-xs sm:text-sm text-white rounded-xl h-11 sm:h-12 px-5 sm:px-6 bg-white/10 hover:bg-white/20 border border-white/25 backdrop-blur-md transition-all shadow-sm w-full sm:w-auto text-center"
           >
-            Subdomain Staging Leases (100% Rebate)
+            Staging Subdomains (100% Rebate)
           </Link>
         </div>
       </motion.div>

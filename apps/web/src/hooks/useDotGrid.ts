@@ -35,6 +35,7 @@ export function useDotGrid(canvasRef: React.RefObject<HTMLCanvasElement | null>)
     let animationFrameId: number | null = null;
     let isVisible = true;
     let dots: Dot[] = [];
+    let time = 0;
     const spacing = 30;
     const dotRadius = 1.6;
     const repulseRadius = 130;
@@ -99,14 +100,21 @@ export function useDotGrid(canvasRef: React.RefObject<HTMLCanvasElement | null>)
         return;
       }
 
+      time += 0.025;
+
       const rect = canvas.getBoundingClientRect();
       ctx.clearRect(0, 0, rect.width, rect.height);
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.38)';
 
       const mouse = mouseRef.current;
 
       for (let i = 0; i < dots.length; i++) {
         const dot = dots[i];
+
+        // Ambient fluid wave motion on mobile / touch / idle
+        const waveX = Math.sin(time + dot.originY * 0.035 + dot.originX * 0.02) * 4.5;
+        const waveY = Math.cos(time + dot.originX * 0.035 + dot.originY * 0.02) * 4.5;
+        const targetOriginX = dot.originX + waveX;
+        const targetOriginY = dot.originY + waveY;
 
         if (mouse.isInside) {
           const dx = mouse.x - dot.currentX;
@@ -122,14 +130,18 @@ export function useDotGrid(canvasRef: React.RefObject<HTMLCanvasElement | null>)
           }
         }
 
-        dot.vx += (dot.originX - dot.currentX) * spring;
-        dot.vy += (dot.originY - dot.currentY) * spring;
+        dot.vx += (targetOriginX - dot.currentX) * spring;
+        dot.vy += (targetOriginY - dot.currentY) * spring;
 
         dot.vx *= friction;
         dot.vy *= friction;
 
         dot.currentX += dot.vx;
         dot.currentY += dot.vy;
+
+        // Subtle alpha shimmering in rhythm with the wave
+        const alpha = 0.28 + Math.sin(time * 0.8 + (dot.originX + dot.originY) * 0.015) * 0.15;
+        ctx.fillStyle = `rgba(255, 255, 255, ${Math.max(0.18, Math.min(0.55, alpha))})`;
 
         ctx.beginPath();
         ctx.arc(dot.currentX, dot.currentY, dotRadius, 0, Math.PI * 2);
@@ -145,16 +157,34 @@ export function useDotGrid(canvasRef: React.RefObject<HTMLCanvasElement | null>)
       }
     };
 
-    const handlePointerMove = (e: PointerEvent) => {
+    const updatePointerPosition = (clientX: number, clientY: number) => {
       const rect = canvas.getBoundingClientRect();
       mouseRef.current = {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
+        x: clientX - rect.left,
+        y: clientY - rect.top,
         isInside: true,
       };
     };
 
+    const handlePointerMove = (e: PointerEvent) => {
+      updatePointerPosition(e.clientX, e.clientY);
+    };
+
+    const handlePointerDown = (e: PointerEvent) => {
+      updatePointerPosition(e.clientX, e.clientY);
+    };
+
     const handlePointerLeave = () => {
+      mouseRef.current.isInside = false;
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length > 0) {
+        updatePointerPosition(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    };
+
+    const handleTouchEnd = () => {
       mouseRef.current.isInside = false;
     };
 
@@ -181,7 +211,10 @@ export function useDotGrid(canvasRef: React.RefObject<HTMLCanvasElement | null>)
     const host = canvas.parentElement ?? canvas;
     if (!prefersReducedMotion) {
       host.addEventListener('pointermove', handlePointerMove, { passive: true });
+      host.addEventListener('pointerdown', handlePointerDown, { passive: true });
       host.addEventListener('pointerleave', handlePointerLeave, { passive: true });
+      host.addEventListener('touchmove', handleTouchMove, { passive: true });
+      host.addEventListener('touchend', handleTouchEnd, { passive: true });
       startRendering();
     } else {
       drawStatic();
@@ -191,7 +224,10 @@ export function useDotGrid(canvasRef: React.RefObject<HTMLCanvasElement | null>)
       observer.disconnect();
       window.removeEventListener('resize', handleResize);
       host.removeEventListener('pointermove', handlePointerMove);
+      host.removeEventListener('pointerdown', handlePointerDown);
       host.removeEventListener('pointerleave', handlePointerLeave);
+      host.removeEventListener('touchmove', handleTouchMove);
+      host.removeEventListener('touchend', handleTouchEnd);
       if (animationFrameId !== null) cancelAnimationFrame(animationFrameId);
       if (resizeRaf !== null) cancelAnimationFrame(resizeRaf);
     };

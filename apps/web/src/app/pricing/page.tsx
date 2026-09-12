@@ -67,33 +67,33 @@ export default function PricingPage() {
 
         {/* TLD RATES TABLE */}
         <div className="mt-10">
-          <h2 className="text-sm font-medium text-[#111111] mb-4">Domain Registration & Renewal Rates</h2>
+          <h2 className="text-base font-bold text-[#111111] mb-4">Domain Registration & Renewal Rates</h2>
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>Extension</TableHead>
-                <TableHead>Registration / Year</TableHead>
-                <TableHead>Renewal / Year</TableHead>
-                <TableHead>WHOIS Privacy</TableHead>
-                <TableHead>Transfer Lock</TableHead>
-                <TableHead className="text-right">Action</TableHead>
+              <TableRow className="bg-[#FAFAF9]">
+                <TableHead className="text-xs font-bold text-[#111111]">Extension</TableHead>
+                <TableHead className="text-xs font-bold text-[#111111]">Registration / Year</TableHead>
+                <TableHead className="text-xs font-bold text-[#111111]">Renewal / Year</TableHead>
+                <TableHead className="text-xs font-bold text-[#111111]">WHOIS Privacy</TableHead>
+                <TableHead className="text-xs font-bold text-[#111111]">Transfer Lock</TableHead>
+                <TableHead className="text-xs font-bold text-[#111111] text-right">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {tlds.map((item) => (
-                <TableRow key={item.tld}>
-                  <TableCell className="font-mono font-medium text-sm text-[#111111]">
+                <TableRow key={item.tld} className="hover:bg-[#F8FAFC]">
+                  <TableCell className="font-extrabold text-sm text-[#0D3B85]">
                     <div className="flex items-center gap-2">
                       <span>{item.tld}</span>
                       {item.highlight && <Badge variant="info">Popular</Badge>}
-                      {item.note && <span className="text-[11px] text-[#6B6E68]">({item.note})</span>}
+                      {item.note && <span className="text-[11px] text-[#6B6E68] font-normal">({item.note})</span>}
                     </div>
                   </TableCell>
-                  <TableCell className="font-mono">{formatPrice(item.retailUsd)}</TableCell>
-                  <TableCell className="font-mono text-[#6B6E68]">{formatPrice(item.retailUsd)}</TableCell>
+                  <TableCell className="font-bold text-sm text-[#111111]">{formatPrice(item.retailUsd)}</TableCell>
+                  <TableCell className="text-xs text-[#6B6E68]">{formatPrice(item.retailUsd)}</TableCell>
                   <TableCell>
                     {item.privacy ? (
-                      <span className="inline-flex items-center gap-1 text-xs text-[#4E7525]">
+                      <span className="inline-flex items-center gap-1 text-xs text-[#4E7525] font-semibold">
                         <ShieldCheck className="w-3.5 h-3.5" /> Included Free
                       </span>
                     ) : (
@@ -101,11 +101,13 @@ export default function PricingPage() {
                     )}
                   </TableCell>
                   <TableCell>
-                    <span className="text-xs text-[#111111]">60-Day ICANN Lock</span>
+                    <span className="text-xs text-[#111111] font-medium">60-Day ICANN Lock</span>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Link href={`/#domains`}>
-                      <Button variant="outline" size="sm">Search</Button>
+                    <Link href={`/domains/domain-name-search?tld=${item.tld.replace('.', '')}`}>
+                      <Button variant="primary" size="sm" className="bg-[#0D3B85] hover:bg-[#1B6FC9] text-xs font-bold rounded-xl h-8 px-3.5">
+                        Register
+                      </Button>
                     </Link>
                   </TableCell>
                 </TableRow>

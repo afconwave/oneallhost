@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { motion } from 'framer-motion';
 
 export const ReliabilityNumbersSection: React.FC = () => {
   return (
@@ -11,52 +12,70 @@ export const ReliabilityNumbersSection: React.FC = () => {
             The numbers speak for our reliability
           </h2>
           <p className="text-sm sm:text-base text-[#6B6E68] font-medium leading-relaxed">
-            Proven infrastructure engineered for ultra-low latency across CEMAC and global markets.
+            Proven Anycast infrastructure engineered for sub-3-minute global routing and 100% uptime.
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Card 1 */}
-          <div className="p-8 rounded-2xl bg-[#FAFAF9] border border-[#EBEBE7] flex flex-col justify-between space-y-6 shadow-xs">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="p-8 rounded-2xl bg-[#FAFAF9] border border-[#EBEBE7] flex flex-col justify-between space-y-6 shadow-xs hover:border-[#0D3B85] transition-all"
+          >
             <div className="space-y-3">
-              <div className="text-4xl font-black text-[#0D3B85]">99.99%</div>
-              <h3 className="text-lg font-bold text-[#111111]">Always Online Architecture</h3>
+              <div className="text-4xl font-black text-[#0D3B85] font-mono">99.99%</div>
+              <h3 className="text-lg font-bold text-[#111111]">Always Online SLA</h3>
               <p className="text-sm text-[#6B6E68] font-medium leading-relaxed">
-                Redundant Anycast DNS clusters ensure your web traffic resolves instantly worldwide with zero single point of failure.
+                Redundant Anycast DNS clusters ensure your web traffic resolves instantly worldwide with zero single points of failure.
               </p>
             </div>
-            <div className="pt-4 border-t border-[#EBEBE7] text-xs font-bold text-[#111111]">
-              Verified SLA Monitoring
+            <div className="pt-4 border-t border-[#EBEBE7] text-xs font-bold text-[#0D3B85]">
+              Verified Global Uptime
             </div>
-          </div>
+          </motion.div>
 
           {/* Card 2 */}
-          <div className="p-8 rounded-2xl bg-[#FAFAF9] border border-[#EBEBE7] flex flex-col justify-between space-y-6 shadow-xs">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="p-8 rounded-2xl bg-[#FAFAF9] border border-[#EBEBE7] flex flex-col justify-between space-y-6 shadow-xs hover:border-[#1B6FC9] transition-all"
+          >
             <div className="space-y-3">
-              <div className="text-4xl font-black text-[#1B6FC9]">&lt; 3 mins</div>
+              <div className="text-4xl font-black text-[#1B6FC9] font-mono">&lt; 3 mins</div>
               <h3 className="text-lg font-bold text-[#111111]">Instant Anycast Routing</h3>
               <p className="text-sm text-[#6B6E68] font-medium leading-relaxed">
                 Changes to A, CNAME, and MX records propagate across global edge nodes in minutes rather than hours.
               </p>
             </div>
-            <div className="pt-4 border-t border-[#EBEBE7] text-xs font-bold text-[#111111]">
-              Global Edge Anycast
+            <div className="pt-4 border-t border-[#EBEBE7] text-xs font-bold text-[#1B6FC9]">
+              Sub-3-Minute Propagation
             </div>
-          </div>
+          </motion.div>
 
           {/* Card 3 */}
-          <div className="p-8 rounded-2xl bg-[#FAFAF9] border border-[#EBEBE7] flex flex-col justify-between space-y-6 shadow-xs">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+            className="p-8 rounded-2xl bg-[#FAFAF9] border border-[#EBEBE7] flex flex-col justify-between space-y-6 shadow-xs hover:border-[#7CB342] transition-all"
+          >
             <div className="space-y-3">
-              <div className="text-4xl font-black text-[#7CB342]">100%</div>
-              <h3 className="text-lg font-bold text-[#111111]">Full Rental Conversion Credit</h3>
+              <div className="text-4xl font-black text-[#7CB342] font-mono">100%</div>
+              <h3 className="text-lg font-bold text-[#111111]">Rental Conversion Credit</h3>
               <p className="text-sm text-[#6B6E68] font-medium leading-relaxed">
                 Every dollar spent on short-term staging subdomains is credited back when you purchase the full domain.
               </p>
             </div>
-            <div className="pt-4 border-t border-[#EBEBE7] text-xs font-bold text-[#111111]">
-              100% Money-Back Credit
+            <div className="pt-4 border-t border-[#EBEBE7] text-xs font-bold text-[#7CB342]">
+              100% Money-Back Rebate
             </div>
-          </div>
+          </motion.div>
         </div>
       </div>
     </section>

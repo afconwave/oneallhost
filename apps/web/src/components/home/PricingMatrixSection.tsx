@@ -9,16 +9,13 @@ export const PricingMatrixSection: React.FC = () => {
   const [billingCycle, setBillingCycle] = useState<'annual' | 'monthly'>('annual');
 
   return (
-    <section id="pricing" className="py-16 bg-white border-t border-[#EBEBE7]">
+    <section id="pricing" className="py-24 bg-white border-0 shadow-none">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         {/* Section Header */}
         <div className="text-center max-w-2xl mx-auto space-y-3 mb-12">
           <h2 className="text-3xl sm:text-4xl font-extrabold text-[#111111] font-display">
             Pick the plan that fits your growth
           </h2>
-          <p className="text-sm text-[#6B6E68]">
-            Transparent pricing with zero hidden renewal fees. All plans include 24/7 Anycast DNS and local MTN / Orange Money billing.
-          </p>
 
           {/* Billing Switcher */}
           <div className="inline-flex items-center p-1 bg-[#FAFAF9] rounded-xl border border-[#EBEBE7] mt-4">
@@ -73,7 +70,7 @@ export const PricingMatrixSection: React.FC = () => {
               </div>
 
               <Link href="/dashboard/rentals" className="block pt-2">
-                <Button variant="outline" size="lg" className="w-full h-12 rounded-xl text-xs font-bold text-[#0D3B85] border-[#DCDDD8] hover:bg-blue-50">
+                <Button variant="outline" size="lg" className="w-full min-h-[48px] rounded-xl text-xs sm:text-sm font-bold text-[#0D3B85] border-[#DCDDD8] hover:bg-blue-50 active:scale-98">
                   <span>Explore Subdomain Leases</span>
                   <ArrowRight className="w-4 h-4 ml-1.5" />
                 </Button>
@@ -146,7 +143,7 @@ export const PricingMatrixSection: React.FC = () => {
               </div>
 
               <Link href="/#domains" className="block pt-2">
-                <Button variant="primary" size="lg" className="w-full h-12 rounded-xl text-xs font-bold bg-[#1B6FC9] hover:bg-blue-600 shadow-md">
+                <Button variant="primary" size="lg" className="w-full min-h-[48px] rounded-xl text-xs sm:text-sm font-bold bg-[#1B6FC9] hover:bg-blue-600 shadow-md active:scale-98">
                   <span>Register Domain Now</span>
                   <ArrowRight className="w-4 h-4 ml-1.5" />
                 </Button>
@@ -213,7 +210,7 @@ export const PricingMatrixSection: React.FC = () => {
               </div>
 
               <Link href="/hosting-waitlist" className="block pt-2">
-                <Button variant="outline" size="lg" className="w-full h-12 rounded-xl text-xs font-bold text-[#0D3B85] border-[#DCDDD8] hover:bg-blue-50">
+                <Button variant="outline" size="lg" className="w-full min-h-[48px] rounded-xl text-xs sm:text-sm font-bold text-[#0D3B85] border-[#DCDDD8] hover:bg-blue-50 active:scale-98">
                   <span>Join Early Access Waitlist</span>
                   <ArrowRight className="w-4 h-4 ml-1.5" />
                 </Button>

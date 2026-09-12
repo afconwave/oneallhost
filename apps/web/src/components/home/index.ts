@@ -1,0 +1,11 @@
+export { HeroSection } from './HeroSection';
+export { TopDealsSection } from './TopDealsSection';
+export { DomainAndStagingSpotlight } from './DomainAndStagingSpotlight';
+export { EveryStepFeatureSection } from './EveryStepFeatureSection';
+export { ReliabilityNumbersSection } from './ReliabilityNumbersSection';
+export { ConfidenceComparisonSection } from './ConfidenceComparisonSection';
+export { PricingMatrixSection } from './PricingMatrixSection';
+export { FaqSection } from './FaqSection';
+export { BottomCtaSection } from './BottomCtaSection';
+export { ReviewsSection } from './ReviewsSection';
+export { SupportedPaymentMethodsSection } from './SupportedPaymentMethodsSection';

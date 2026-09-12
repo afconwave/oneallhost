@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Card, Badge, Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@oneallhost/ui';
+import { Card, Badge, Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, toast } from '@oneallhost/ui';
 import { CreditCard, AlertTriangle, CheckCircle2, RotateCcw, ShieldAlert } from 'lucide-react';
 
 export default function AdminPaymentsPage() {
@@ -65,7 +65,12 @@ export default function AdminPaymentsPage() {
   };
 
   const handleRetryPayment = (id: string) => {
-    alert(`[RETRY] Re-dispatching Altonixa Pay webhook trigger for transaction ${id}.`);
+    toast.info(`Re-dispatching webhook trigger for transaction ${id}.`, {
+      action: {
+        label: 'View Logs',
+        onClick: () => console.log('Opening transaction logs...')
+      }
+    });
   };
 
   return (

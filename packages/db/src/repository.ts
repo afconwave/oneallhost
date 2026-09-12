@@ -10,6 +10,9 @@ export interface UserRecord {
   phone: string;
   countryCode: string;
   preferredCurrency: 'USD' | 'XAF';
+  balanceUsd: number;
+  balanceXaf: number;
+  autoDebitEnabled: boolean;
   twoFactorEnabled: boolean;
   kycStatus: 'pending' | 'verified' | 'rejected';
   createdAt: string;
@@ -77,11 +80,14 @@ class DatabaseEngine {
     // Initial production state initialization
     const initialUser: UserRecord = {
       id: 'usr-1',
-      name: 'Aloah Milton',
-      email: 'aloahmilton9@gmail.com',
-      phone: '675405180',
+      name: 'Account Owner',
+      email: 'client@oneallhost.com',
+      phone: '670000000',
       countryCode: 'CM',
       preferredCurrency: 'USD',
+      balanceUsd: 125.50,
+      balanceXaf: 77500,
+      autoDebitEnabled: true,
       twoFactorEnabled: false,
       kycStatus: 'verified',
       createdAt: new Date().toISOString(),
@@ -97,13 +103,16 @@ class DatabaseEngine {
     });
   }
 
-  // --- Users ---
+  // --- Users & Wallet ---
   public usersRepo = {
-    create: (user: Omit<UserRecord, 'id' | 'createdAt'>): UserRecord => {
+    create: (user: Omit<UserRecord, 'id' | 'createdAt' | 'balanceUsd' | 'balanceXaf' | 'autoDebitEnabled'>): UserRecord => {
       const id = `usr-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
       const record: UserRecord = {
         ...user,
         id,
+        balanceUsd: 0,
+        balanceXaf: 0,
+        autoDebitEnabled: true,
         createdAt: new Date().toISOString(),
       };
       this.users.set(id, record);
@@ -121,6 +130,27 @@ class DatabaseEngine {
       const updated = { ...existing, ...updates };
       this.users.set(id, updated);
       return updated;
+    },
+    topupBalance: (id: string, amountUsd: number, amountXaf: number): UserRecord | undefined => {
+      const user = this.users.get(id);
+      if (!user) return undefined;
+      user.balanceUsd = Number((user.balanceUsd + amountUsd).toFixed(2));
+      user.balanceXaf = Math.round(user.balanceXaf + amountXaf);
+      this.users.set(id, user);
+      this.auditLogsRepo.log('WALLET_TOPUP', user.email, `Added $${amountUsd} USD (${amountXaf} XAF)`);
+      return user;
+    },
+    debitBalance: (id: string, amountUsd: number, amountXaf: number): { success: boolean; user?: UserRecord; error?: string } => {
+      const user = this.users.get(id);
+      if (!user) return { success: false, error: 'User not found' };
+      if (user.balanceUsd < amountUsd) {
+        return { success: false, error: 'Insufficient wallet balance' };
+      }
+      user.balanceUsd = Number((user.balanceUsd - amountUsd).toFixed(2));
+      user.balanceXaf = Math.max(0, Math.round(user.balanceXaf - amountXaf));
+      this.users.set(id, user);
+      this.auditLogsRepo.log('WALLET_DEBIT', user.email, `Deducted $${amountUsd} USD (${amountXaf} XAF)`);
+      return { success: true, user };
     },
   };
 
@@ -190,7 +220,7 @@ class DatabaseEngine {
   // --- Payments & Ledger ---
   public paymentsRepo = {
     create: (payment: Omit<PaymentRecord, 'id' | 'timestamp'>): PaymentRecord => {
-      const id = payment.reference || `TXN-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+      const id = payment.reference || `ONH-TXN-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
       const record: PaymentRecord = {
         ...payment,
         id,

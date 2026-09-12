@@ -1,5 +1,6 @@
 import './globals.css';
 import type { Metadata } from 'next';
+import { Toaster } from '@oneallhost/ui';
 
 export const metadata: Metadata = {
   title: 'Oneallhost — Domain Registration, Subdomain Leasing & Cloud Hosting',
@@ -12,16 +13,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" data-scroll-behavior="smooth">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link rel="preconnect" href="https://api.fontshare.com" />
-        {/* Fontshare: Clash Display for Headlines & Satoshi for Body Text */}
+        {/* Google Font: Plus Jakarta Sans (Universal Platform Typography) */}
         <link
-          href="https://api.fontshare.com/v2/css?f[]=clash-display@600,700&f[]=satoshi@400,500,600,700,900&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600;1,700&display=swap"
           rel="stylesheet"
         />
+
         {/* Bootstrap Icons CDN */}
         <link
           rel="stylesheet"
@@ -36,6 +37,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen bg-surface-0 text-ink font-sans antialiased selection:bg-brand-blue selection:text-white">
         {children}
+        <Toaster />
       </body>
     </html>
   );

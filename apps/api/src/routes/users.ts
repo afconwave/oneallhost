@@ -144,3 +144,100 @@ userRouter.get('/notifications', (req: Request, res: Response) => {
     notifications: computedNotifications,
   });
 });
+
+// 10. Top-Up Wallet Balance
+userRouter.post('/wallet/topup', (req: Request, res: Response) => {
+  const { amountUsd, amountXaf, paymentMethod = 'MTN Mobile Money', reference } = req.body;
+  const user = db.usersRepo.findById('usr-1') || db.usersRepo.list()[0];
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const numUsd = Number(amountUsd);
+  const numXaf = Number(amountXaf) || Math.round(numUsd * 615.5);
+
+  if (isNaN(numUsd) || numUsd <= 0) {
+    return res.status(400).json({ error: 'Invalid top-up amount' });
+  }
+
+  const updatedUser = db.usersRepo.topupBalance(user.id, numUsd, numXaf);
+  const txnRef = reference || `ONH-TOPUP-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+  // Record settled transaction in ledger
+  db.paymentsRepo.create({
+    userId: user.id,
+    client: user.name,
+    method: paymentMethod,
+    amountUsd: numUsd,
+    amountXaf: numXaf,
+    status: 'settled',
+    item: `Account Wallet Top-Up ($${numUsd.toFixed(2)} USD)`,
+    reference: txnRef,
+  });
+
+  return res.json({
+    success: true,
+    message: `Successfully added $${numUsd.toFixed(2)} USD to account wallet`,
+    user: updatedUser,
+    transactionReference: txnRef,
+  });
+});
+
+// 11. Pay using Account Balance
+userRouter.post('/wallet/pay', (req: Request, res: Response) => {
+  const { amountUsd, item = 'Domain Registration', reference } = req.body;
+  const user = db.usersRepo.findById('usr-1') || db.usersRepo.list()[0];
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const numUsd = Number(amountUsd);
+  if (isNaN(numUsd) || numUsd <= 0) {
+    return res.status(400).json({ error: 'Invalid payment amount' });
+  }
+
+  const numXaf = Math.round(numUsd * 615.5);
+  const debitResult = db.usersRepo.debitBalance(user.id, numUsd, numXaf);
+
+  if (!debitResult.success) {
+    return res.status(400).json({
+      error: debitResult.error || 'Insufficient wallet balance',
+      currentBalanceUsd: user.balanceUsd,
+      requiredUsd: numUsd,
+    });
+  }
+
+  const txnRef = reference || `ONH-BAL-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+  // Record settled payment in ledger
+  const paymentRecord = db.paymentsRepo.create({
+    userId: user.id,
+    client: user.name,
+    method: 'Account Balance',
+    amountUsd: numUsd,
+    amountXaf: numXaf,
+    status: 'settled',
+    item: item,
+    reference: txnRef,
+  });
+
+  return res.json({
+    success: true,
+    message: `Payment of $${numUsd.toFixed(2)} settled from account balance`,
+    user: debitResult.user,
+    payment: paymentRecord,
+  });
+});
+
+// 12. Toggle / Update Auto-Debit Setting
+userRouter.put('/wallet/auto-debit', (req: Request, res: Response) => {
+  const { enabled } = req.body;
+  const user = db.usersRepo.findById('usr-1') || db.usersRepo.list()[0];
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const isEnabled = Boolean(enabled);
+  const updated = db.usersRepo.update(user.id, { autoDebitEnabled: isEnabled });
+  db.auditLogsRepo.log('AUTO_DEBIT_UPDATED', user.email, `Auto-debit status set to ${isEnabled}`);
+
+  return res.json({
+    success: true,
+    autoDebitEnabled: isEnabled,
+    user: updated,
+  });
+});

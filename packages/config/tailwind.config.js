@@ -28,9 +28,9 @@ module.exports = {
         },
       },
       fontFamily: {
-        sans: ['Satoshi', 'Inter', 'system-ui', '-apple-system', 'sans-serif'],
-        display: ['Clash Display', 'Satoshi', 'system-ui', 'sans-serif'],
-        mono: ['IBM Plex Mono', 'monospace'],
+        sans: ['Plus Jakarta Sans', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        display: ['Plus Jakarta Sans', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        mono: ['Plus Jakarta Sans', 'monospace'],
       },
       borderRadius: {
         DEFAULT: '6px',

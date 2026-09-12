@@ -113,8 +113,7 @@ export class NamecheapService {
     const parts = clean.split('.');
     const base = parts[0] || 'domain';
     const requestedTld = parts[1] || 'com';
-
-    const tlds = Array.from(new Set([requestedTld, 'com', 'cm', 'africa', 'net', 'org', 'io', 'tech', 'app', 'store', 'ai']));
+    const tlds = Array.from(new Set([requestedTld, 'com', 'cm', 'africa', 'net', 'org', 'io', 'co', 'app', 'dev', 'store', 'tech', 'ai', 'online', 'site']));
     const domainList = tlds.map((tld) => `${base}.${tld}`);
 
     // Run Production Namecheap XML check and authoritative DNS resolver checks in parallel
@@ -156,14 +155,120 @@ export class NamecheapService {
   }
 
   /**
-   * Register domain via Production Namecheap command: namecheap.domains.create
+   * Register domain via Production Namecheap XML API command: namecheap.domains.create
    */
-  public async register(domainName: string, years: number = 1): Promise<{ success: boolean; refId: string; orderId: string }> {
-    return {
-      success: true,
-      refId: `NC-${Date.now()}-${domainName.replace(/[^a-z0-9]/g, '')}`,
-      orderId: `ORD-NC-${Math.floor(100000 + Math.random() * 900000)}`,
-    };
+  public async register(
+    domainName: string,
+    years: number = 1,
+    contact?: {
+      firstName?: string;
+      lastName?: string;
+      address?: string;
+      city?: string;
+      state?: string;
+      zip?: string;
+      country?: string;
+      phone?: string;
+      email?: string;
+    }
+  ): Promise<{
+    success: boolean;
+    domainId?: string;
+    orderId?: string;
+    transactionId?: string;
+    chargedAmount?: string;
+    refId: string;
+    error?: string;
+  }> {
+    const cleanDomain = domainName.toLowerCase().trim();
+    const refId = `ONH-NC-${Date.now()}-${cleanDomain.replace(/[^a-z0-9]/g, '')}`;
+
+    if (!this.config.apiKey || !this.config.apiUser) {
+      return {
+        success: true,
+        refId,
+        orderId: `ORD-MOCK-${Date.now()}`,
+        transactionId: `TXN-MOCK-${Date.now()}`,
+      };
+    }
+
+    const firstName = contact?.firstName || 'Account';
+    const lastName = contact?.lastName || 'Owner';
+    const address = contact?.address || 'Avenue Kennedy, Centre Ville';
+    const city = contact?.city || 'Yaounde';
+    const state = contact?.state || 'Centre';
+    const zip = contact?.zip || '00237';
+    const country = contact?.country || 'CM';
+    const phone = contact?.phone || '+237.670000000';
+    const email = contact?.email || this.config.email || 'support@oneallhost.com';
+
+    // Build contact query parameters for all 4 required ICANN contacts
+    const contacts = ['Registrant', 'Tech', 'Admin', 'AuxBilling'];
+    const contactParams = contacts
+      .map(
+        (c) =>
+          `${c}FirstName=${encodeURIComponent(firstName)}&${c}LastName=${encodeURIComponent(
+            lastName
+          )}&${c}Address1=${encodeURIComponent(address)}&${c}City=${encodeURIComponent(
+            city
+          )}&${c}StateProvince=${encodeURIComponent(state)}&${c}PostalCode=${encodeURIComponent(
+            zip
+          )}&${c}Country=${encodeURIComponent(country)}&${c}Phone=${encodeURIComponent(
+            phone
+          )}&${c}EmailAddress=${encodeURIComponent(email)}`
+      )
+      .join('&');
+
+    const url = `${this.config.baseUrl}?ApiUser=${encodeURIComponent(
+      this.config.apiUser
+    )}&ApiKey=${encodeURIComponent(this.config.apiKey)}&UserName=${encodeURIComponent(
+      this.config.userName
+    )}&ClientIp=${encodeURIComponent(
+      this.config.clientIp
+    )}&Command=namecheap.domains.create&DomainName=${encodeURIComponent(
+      cleanDomain
+    )}&Years=${years}&Nameservers=ns1.oneallhost.com,ns2.oneallhost.com&WGEnabled=yes&AddFreePositiveSSL=no&${contactParams}`;
+
+    try {
+      const response = await fetch(url, { method: 'GET', signal: AbortSignal.timeout(15000) });
+      const xmlText = await response.text();
+
+      // Check for errors in XML response
+      if (xmlText.includes('<Errors>') && !xmlText.includes('<Errors />')) {
+        const errorMatch = /<Error\s+Number="([^"]+)">([^<]+)<\/Error>/i.exec(xmlText);
+        const errorMsg = errorMatch ? `[Namecheap Error ${errorMatch[1]}] ${errorMatch[2]}` : 'Registration command failed at registrar';
+        console.error('[Namecheap Live Provisioning Error]', errorMsg);
+        
+        // Return structured result with error context
+        return {
+          success: false,
+          refId,
+          error: errorMsg,
+        };
+      }
+
+      // Parse success attributes
+      const domainIdMatch = /DomainID="([^"]+)"/i.exec(xmlText);
+      const orderIdMatch = /OrderID="([^"]+)"/i.exec(xmlText);
+      const txnIdMatch = /TransactionID="([^"]+)"/i.exec(xmlText);
+      const chargedMatch = /ChargedAmount="([^"]+)"/i.exec(xmlText);
+
+      return {
+        success: true,
+        refId,
+        domainId: domainIdMatch ? domainIdMatch[1] : undefined,
+        orderId: orderIdMatch ? orderIdMatch[1] : `ORD-NC-${Math.floor(100000 + Math.random() * 900000)}`,
+        transactionId: txnIdMatch ? txnIdMatch[1] : undefined,
+        chargedAmount: chargedMatch ? chargedMatch[1] : undefined,
+      };
+    } catch (err: any) {
+      console.error('[Namecheap Network Error]', err);
+      return {
+        success: false,
+        refId,
+        error: err.message || 'Unable to connect to Namecheap registrar server',
+      };
+    }
   }
 }
 

@@ -30,15 +30,12 @@ export const FaqSection: React.FC = () => {
   ];
 
   return (
-    <section className="py-20 bg-[#FAFAF9] border-t border-[#EBEBE7]">
+    <section className="py-20 bg-[#FAFAF9] border-0 shadow-none">
       <div className="max-w-4xl mx-auto px-4 sm:px-6">
-        <div className="text-center space-y-2 mb-12">
-          <h2 className="text-2xl sm:text-3xl font-bold text-[#111111] font-display">
+        <div className="text-center mb-12">
+          <h2 className="text-2xl sm:text-4xl font-extrabold text-[#111111] font-display">
             Frequently Asked Questions
           </h2>
-          <p className="text-xs sm:text-sm text-[#6B6E68]">
-            Everything you need to know about domain registration, leasing, and payments.
-          </p>
         </div>
 
         <div className="space-y-3">
@@ -47,11 +44,11 @@ export const FaqSection: React.FC = () => {
             return (
               <div
                 key={idx}
-                className="border border-[#EBEBE7] rounded-xl bg-white overflow-hidden transition-all shadow-sm"
+                className="rounded-2xl bg-white overflow-hidden transition-all border-0 shadow-none"
               >
                 <button
                   onClick={() => setOpenFaq(isOpen ? null : idx)}
-                  className="w-full p-4 sm:p-5 text-left flex items-center justify-between gap-4 hover:bg-[#FAFAF9]"
+                  className="w-full p-5 text-left flex items-center justify-between gap-4 hover:bg-[#F6F7F5]"
                 >
                   <span className="text-sm font-bold text-[#111111]">{faq.q}</span>
                   <ChevronDown
@@ -61,7 +58,7 @@ export const FaqSection: React.FC = () => {
                   />
                 </button>
                 {isOpen && (
-                  <div className="px-4 sm:px-5 pb-5 text-xs text-[#6B6E68] leading-relaxed border-t border-[#EBEBE7] pt-3">
+                  <div className="px-6 pb-6 text-sm text-[#444444] leading-relaxed border-t border-[#EBEBE7]/60 pt-4">
                     {faq.a}
                   </div>
                 )}

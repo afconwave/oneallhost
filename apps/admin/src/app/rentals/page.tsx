@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Card, Badge, Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@oneallhost/ui';
+import { Card, Badge, Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, toast } from '@oneallhost/ui';
 import { Repeat, Clock, AlertTriangle } from 'lucide-react';
 
 export default function AdminRentalsPage() {
@@ -35,7 +35,12 @@ export default function AdminRentalsPage() {
   };
 
   const handleIssueRefund = (id: string, price: string) => {
-    alert(`[ADMIN REFUND] Linked Credit Note issued for rental ${id} (${price}). Financial ledger updated.`);
+    toast.success(`Refund & Credit Note issued for rental ${id} (${price}).`, {
+      action: {
+        label: 'View Ledger',
+        onClick: () => alert('Ledger modal opened'), // For demo, actionable!
+      }
+    });
   };
 
   return (

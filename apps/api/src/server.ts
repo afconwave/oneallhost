@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { domainRouter } from './routes/domains';
 import { rentalRouter } from './routes/rentals';
@@ -7,6 +7,7 @@ import { invoiceRouter } from './routes/invoices';
 import { healthRouter } from './routes/health';
 import { userRouter } from './routes/users';
 import { adminRouter } from './routes/admin';
+import { toolsRouter } from './routes/tools';
 import { createRateLimiter } from './middleware/rate-limiter';
 import { idempotencyMiddleware } from './middleware/idempotency';
 
@@ -17,6 +18,19 @@ app.use(cors());
 app.use(express.json());
 app.use(idempotencyMiddleware);
 
+// Security Headers Middleware (Protection against XSS, Clickjacking, MIME sniffing, etc.)
+app.use((req: Request, res: Response, next: NextFunction) => {
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  if (req.secure || req.headers['x-forwarded-proto'] === 'https') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+  next();
+});
+
 // Global Rate Limiting: 120 requests per minute per IP (Spec §8i)
 app.use(createRateLimiter({ maxRequests: 120, windowMs: 60 * 1000 }));
 
@@ -25,6 +39,7 @@ const v1Router = express.Router();
 v1Router.use('/users', userRouter);
 v1Router.use('/admin', adminRouter);
 v1Router.use('/domains', domainRouter);
+v1Router.use('/tools', toolsRouter);
 v1Router.use('/rentals', rentalRouter);
 v1Router.use('/payments', paymentRouter);
 v1Router.use('/invoices', invoiceRouter);
@@ -36,7 +51,18 @@ app.use('/api/v1', v1Router);
 // Backwards-compatibility alias for `/api/*`
 app.use('/api', v1Router);
 
-app.get('/', (req, res) => {
+// Production Global Safe Error Handler (Never expose stack traces to client)
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+  const statusCode = err.status || err.statusCode || 500;
+  return res.status(statusCode).json({
+    success: false,
+    error: process.env.NODE_ENV === 'production' && statusCode === 500
+      ? 'An internal server error occurred. Please contact support.'
+      : err.message || 'Internal Server Error',
+  });
+});
+
+app.get('/', (req: Request, res: Response) => {
   res.json({
     name: 'Oneallhost Backend API Gateway',
     version: '1.0.0',

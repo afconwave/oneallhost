@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Card, Badge, Button, Input, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@oneallhost/ui';
+import { Card, Badge, Button, Input, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, toast } from '@oneallhost/ui';
 import { Users, Search, ShieldCheck, ShieldAlert, UserCheck, Eye } from 'lucide-react';
 
 export default function AdminClientsPage() {
@@ -47,7 +47,12 @@ export default function AdminClientsPage() {
   const [searchTerm, setSearchTerm] = useState('');
 
   const handleImpersonate = (clientName: string, clientEmail: string) => {
-    alert(`[AUDIT LOGGED] Support impersonation session started for ${clientName} (${clientEmail}). All actions logged.`);
+    toast.warning(`Support impersonation session started for ${clientName} (${clientEmail}).`, {
+      action: {
+        label: 'View Audit Log',
+        onClick: () => console.log('Opening audit log...'),
+      }
+    });
   };
 
   const handleVerifyKyc = (id: string) => {

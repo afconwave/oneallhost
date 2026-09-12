@@ -4,37 +4,95 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Header } from '../../components/Header';
 import { Footer } from '../../components/Footer';
-import { Card, Badge, Button, Input } from '@oneallhost/ui';
+import {
+  CountrySelect,
+  MtnMomoBadge,
+  OrangeMoneyBadge,
+  WaveBadge,
+  MpesaBadge,
+  AirtelMoneyBadge,
+  MoovMoneyBadge,
+  VisaMastercardBadges,
+  ApplePayBadge,
+  CryptoBadge,
+} from '@/components/ui';
+import { useGeoCurrency, detectUserGeoCurrency, GEO_CURRENCY_REGISTRY } from '@/lib/geoCurrency';
+import { Card, Badge, Button, Input, toast } from '@oneallhost/ui';
+
 import {
   CreditCard,
   Smartphone,
-  Bitcoin,
-  ShieldCheck,
   CheckCircle2,
   Download,
   ArrowRight,
   Clock,
+  Wallet,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { swychrClient, SwychrPayoutMethod } from '@oneallhost/payments';
+import { type SwychrPayoutMethod, SUPPORTED_AFRICAN_COUNTRIES } from '@oneallhost/payments';
+
+const PREFIX_TO_COUNTRY: Record<string, string> = {
+  '256': 'UG',
+  '228': 'TG',
+  '255': 'TZ',
+  '221': 'SN',
+  '250': 'RW',
+  '234': 'NG',
+  '227': 'NE',
+  '223': 'ML',
+  '254': 'KE',
+  '225': 'CI',
+  '224': 'GN',
+  '233': 'GH',
+  '241': 'GA',
+  '243': 'CD',
+  '242': 'CG',
+  '237': 'CM',
+  '226': 'BF',
+  '229': 'BJ',
+};
+
+function detectCountryFromPhone(phoneNum: string): string | null {
+  const clean = phoneNum.replace(/[^0-9]/g, '');
+  for (const prefix of Object.keys(PREFIX_TO_COUNTRY)) {
+    if (clean.startsWith(prefix)) {
+      return PREFIX_TO_COUNTRY[prefix];
+    }
+  }
+  return null;
+}
 
 function CheckoutContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { geoConfig } = useGeoCurrency();
 
   const domain = searchParams.get('domain') || 'mybusiness.com';
   const rawAmountUsd = searchParams.get('amount') ? parseFloat(searchParams.get('amount')!) : 13.99;
 
-  // Customer info state
-  const [countryCode, setCountryCode] = useState<string>('CM');
-  const [customerName, setCustomerName] = useState<string>('Aloah Milton');
-  const [customerEmail, setCustomerEmail] = useState<string>('aloahmilton9@gmail.com');
-  const [mobileNumber, setMobileNumber] = useState<string>('675405180');
+  // Customer info state with immediate geolocation auto-detection
+  const [countryCode, setCountryCode] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const detected = detectUserGeoCurrency();
+      return detected?.countryCode || 'CM';
+    }
+    return 'CM';
+  });
+  const [customerName, setCustomerName] = useState<string>('');
+  const [customerEmail, setCustomerEmail] = useState<string>('');
+  const [mobileNumber, setMobileNumber] = useState<string>('');
   const [passDigitalCharge, setPassDigitalCharge] = useState<boolean>(true);
+  const [userBalanceUsd, setUserBalanceUsd] = useState<number>(0);
+  const [userBalanceXaf, setUserBalanceXaf] = useState<number>(0);
+
+  // Nigeria bank payment details state
+  const [nigerianBanks, setNigerianBanks] = useState<any[]>([]);
+  const [bankCode, setBankCode] = useState<string>('');
+  const [accountNumber, setAccountNumber] = useState<string>('');
 
   // Payment methods state
-  const [paymentRail, setPaymentRail] = useState<'momo_direct' | 'card' | 'crypto'>('momo_direct');
+  const [paymentRail, setPaymentRail] = useState<'momo_direct' | 'card' | 'crypto' | 'wallet_balance'>('momo_direct');
   const [availableMethods, setAvailableMethods] = useState<SwychrPayoutMethod[]>([
     { payment_method: 'MTN', mobile_format: '6XXXXXXXX', applicable_mobileno_length: '9' },
     { payment_method: 'ORANGE', mobile_format: '6XXXXXXXX', applicable_mobileno_length: '9' },
@@ -46,17 +104,90 @@ function CheckoutContent() {
   const [isPendingConfirmation, setIsPendingConfirmation] = useState<boolean>(false);
   const [isCompleted, setIsCompleted] = useState<boolean>(false);
   const [transactionId, setTransactionId] = useState<string>('');
+  const [timeLeft, setTimeLeft] = useState<number>(180);
+  const [isExpired, setIsExpired] = useState<boolean>(false);
   const [invoiceNumber, setInvoiceNumber] = useState<string>('');
 
-  const xafRate = 615.5;
-  const amountXaf = Math.round(rawAmountUsd * xafRate);
-  const digitalChargeFee = passDigitalCharge ? Math.round(amountXaf * 0.025) : 0;
-  const totalChargeXaf = amountXaf + digitalChargeFee;
+  // Exchange rate & Currency dynamically mapped from SUPPORTED_AFRICAN_COUNTRIES
+  const countryConfig = SUPPORTED_AFRICAN_COUNTRIES[countryCode] || {
+    exchangeRate: 615.5,
+    currencyCode: 'XAF',
+    currencyName: 'Central African CFA Franc',
+  };
+  const exchangeRate = countryConfig.exchangeRate;
+  const currencyCode = countryConfig.currencyCode;
 
+  const amountLocal = Math.round(rawAmountUsd * exchangeRate);
+  const digitalChargeFee = passDigitalCharge ? Math.round(amountLocal * 0.025) : 0;
+  const totalChargeLocal = amountLocal + digitalChargeFee;
+
+  // Timer countdown
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (isPendingConfirmation && timeLeft > 0) {
+      timer = setInterval(() => setTimeLeft((prev) => prev - 1), 1000);
+    } else if (isPendingConfirmation && timeLeft === 0) {
+      setIsPendingConfirmation(false);
+      setIsExpired(true);
+    }
+    return () => clearInterval(timer);
+  }, [isPendingConfirmation, timeLeft]);
+
+  // Initial country from URL param or client auto-detection
+  useEffect(() => {
+    const urlCountry = searchParams.get('country');
+    if (urlCountry && (SUPPORTED_AFRICAN_COUNTRIES[urlCountry] || urlCountry === 'US')) {
+      setCountryCode(urlCountry);
+    } else if (geoConfig && geoConfig.countryCode) {
+      setCountryCode(geoConfig.countryCode);
+      if (!geoConfig.isAfricanRail) {
+        setPaymentRail('card');
+      }
+    }
+  }, [searchParams, geoConfig]);
+
+  // Pre-populate user profile on mount & auto-detect country from profile phone
+  useEffect(() => {
+    async function loadProfile() {
+      try {
+        const res = await fetch('/api/users/me');
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.user) {
+            setCustomerName(data.user.name || '');
+            setCustomerEmail(data.user.email || '');
+            setUserBalanceUsd(data.user.balanceUsd || 0);
+            setUserBalanceXaf(data.user.balanceXaf || 0);
+            if (data.user.phone) {
+              setMobileNumber(data.user.phone);
+              const detected = detectCountryFromPhone(data.user.phone);
+              if (detected) {
+                setCountryCode(detected);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        // User is not authenticated yet or guest checkout
+      }
+    }
+    loadProfile();
+  }, []);
+
+  // Fetch payout methods when country changes
   useEffect(() => {
     async function loadMethods() {
       try {
-        const res = await swychrClient.getPayoutMethods(countryCode);
+        const response = await fetch('/api/payments/payout-methods', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ country_code: countryCode }),
+        });
+        if (!response.ok) throw new Error('Failed to fetch payout methods');
+        const resJson = await response.json();
+        const res = resJson.success ? resJson.data : null;
         if (res && res.payment_methods && res.payment_methods.length > 0) {
           setAvailableMethods(res.payment_methods);
           setSelectedMethodName(res.payment_methods[0].payment_method);
@@ -68,37 +199,95 @@ function CheckoutContent() {
     loadMethods();
   }, [countryCode]);
 
+  // Load Nigeria banks list if BANK_TRANSFER method is selected
+  useEffect(() => {
+    async function loadBanks() {
+      if (selectedMethodName === 'BANK_TRANSFER' && nigerianBanks.length === 0) {
+        try {
+          const res = await fetch('/api/payments/nigeria-banks');
+          if (res.ok) {
+            const json = await res.json();
+            if (json.success && Array.isArray(json.data)) {
+              setNigerianBanks(json.data);
+            }
+          }
+        } catch (err) {
+          console.warn('Failed to load Nigerian banks list');
+        }
+      }
+    }
+    loadBanks();
+  }, [selectedMethodName, nigerianBanks]);
+
+  const handlePhoneChange = (val: string) => {
+    setMobileNumber(val);
+    const detected = detectCountryFromPhone(val);
+    if (detected) {
+      setCountryCode(detected);
+    }
+  };
+
   const handleDirectPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    const txnId = `TXN-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const txnId = `ONH-TXN-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
     setTransactionId(txnId);
 
     try {
-      if (paymentRail === 'momo_direct') {
-        await swychrClient.createPaymentRequest({
-          country_code: countryCode,
-          name: customerName,
-          email: customerEmail,
-          mobile: mobileNumber,
-          transaction_id: txnId,
-          amount: amountXaf,
-          payment_method: selectedMethodName,
-          description: `Domain Registration: ${domain}`,
-          pass_digital_charge: passDigitalCharge,
-          source: 'Oneallhost-Swychr',
+      if (paymentRail === 'wallet_balance') {
+        const response = await fetch('/api/users/wallet/pay', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            amountUsd: rawAmountUsd,
+            item: `Domain Registration: ${domain}`,
+            reference: txnId,
+          }),
         });
+
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+          throw new Error(data.error || 'Insufficient wallet balance or payment error');
+        }
+
+        const invNo = data.payment?.reference || `ONH-2026-${Math.floor(100000 + Math.random() * 900000)}`;
+        setInvoiceNumber(invNo);
+        setIsSubmitting(false);
+        setIsCompleted(true);
+      } else if (paymentRail === 'momo_direct') {
+        const response = await fetch('/api/payments/create-direct-payment', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            country_code: countryCode,
+            name: customerName,
+            email: customerEmail,
+            mobile: mobileNumber,
+            transaction_id: txnId,
+            amount: amountLocal,
+            payment_method: selectedMethodName,
+            description: `Domain Registration: ${domain}`,
+            pass_digital_charge: passDigitalCharge,
+          }),
+        });
+
+        if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(errData.error || errData.message || 'Payment initiation failed');
+        }
 
         setIsSubmitting(false);
         setIsPendingConfirmation(true);
 
-        setTimeout(() => {
-          const invNo = `ONH-2026-${Math.floor(100000 + Math.random() * 900000)}`;
-          setInvoiceNumber(invNo);
-          setIsPendingConfirmation(false);
-          setIsCompleted(true);
-        }, 3000);
+        // In a real app we would poll the backend here. For demo, we'll let it countdown unless a webhook is manually triggered.
+        setTimeLeft(180);
+        setIsExpired(false);
+        setIsPendingConfirmation(true);
       } else {
         setTimeout(() => {
           const invNo = `ONH-2026-${Math.floor(100000 + Math.random() * 900000)}`;
@@ -109,7 +298,7 @@ function CheckoutContent() {
       }
     } catch (error: any) {
       setIsSubmitting(false);
-      alert(`Payment error: ${error.message}`);
+      toast.error(`Payment error: ${error.message}`);
     }
   };
 
@@ -136,7 +325,7 @@ function CheckoutContent() {
     doc.setTextColor(17, 17, 17);
     doc.text(`Invoice No: ${invoiceNumber}`, 130, 29);
     doc.text(`Issue Date: ${new Date().toLocaleDateString('en-GB')}`, 130, 34);
-    doc.text(`Payment: Swychr Direct (${selectedMethodName})`, 130, 39);
+    doc.text(`Payment: Online Settlement (${selectedMethodName})`, 130, 39);
     doc.text(`Ref: ${transactionId}`, 130, 44);
 
     autoTable(doc, {
@@ -146,8 +335,8 @@ function CheckoutContent() {
         [
           `Domain Registration: ${domain} (1 Year) with Free WHOIS Privacy`,
           '1',
-          `${totalChargeXaf.toLocaleString()} XAF ($${rawAmountUsd.toFixed(2)})`,
-          `${totalChargeXaf.toLocaleString()} XAF`,
+          `${totalChargeLocal.toLocaleString()} ${currencyCode} ($${rawAmountUsd.toFixed(2)})`,
+          `${totalChargeLocal.toLocaleString()} ${currencyCode}`,
         ],
       ],
       theme: 'plain',
@@ -167,7 +356,7 @@ function CheckoutContent() {
             <CheckCircle2 className="w-12 h-12 text-[#4E7525] mx-auto" />
             
             <div>
-              <Badge variant="success">Payment Settled via Swychr Direct API</Badge>
+              <Badge variant="success">Payment Settled Successfully</Badge>
               <h1 className="mt-3 text-2xl font-medium text-[#111111]">
                 Registration Provisioned!
               </h1>
@@ -182,7 +371,7 @@ function CheckoutContent() {
                 <span className="font-mono text-[#111111] font-medium">{invoiceNumber}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#6B6E68]">Swychr Transaction ID:</span>
+                <span className="text-[#6B6E68]">Transaction Reference:</span>
                 <span className="font-mono text-[#111111]">{transactionId}</span>
               </div>
               <div className="flex justify-between">
@@ -191,7 +380,7 @@ function CheckoutContent() {
               </div>
               <div className="pt-2 border-t border-[#EBEBE7] flex justify-between font-medium text-sm text-[#0D3B85]">
                 <span>Total Settled:</span>
-                <span className="font-mono">{totalChargeXaf.toLocaleString()} XAF (${rawAmountUsd.toFixed(2)})</span>
+                <span className="font-mono">{totalChargeLocal.toLocaleString()} {currencyCode} (${rawAmountUsd.toFixed(2)})</span>
               </div>
             </div>
 
@@ -212,12 +401,21 @@ function CheckoutContent() {
             </div>
           </Card>
         ) : isPendingConfirmation ? (
+          isExpired ? (
+          <Card elevation="surface-1" className="p-8 max-w-xl mx-auto text-center space-y-4 border-[#FADCD9] bg-[#FDF1F0]">
+            <Badge variant="danger">Transaction Expired</Badge>
+            <h2 className="text-xl font-medium text-[#111111]">Payment Request Timeout</h2>
+
+            <p className="text-xs text-[#6B6E68]">The 3-minute window to complete this transaction has elapsed. Please try again.</p>
+            <Button onClick={() => { setIsExpired(false); setIsSubmitting(false); }}>Retry Payment</Button>
+          </Card>
+        ) : (
           <Card elevation="surface-1" className="p-8 max-w-xl mx-auto text-center space-y-4 border-[#CCE2FA] bg-[#EDF5FD]">
             <Clock className="w-12 h-12 text-[#1B6FC9] mx-auto animate-pulse" />
             <Badge variant="info">Waiting for Phone PIN Confirmation</Badge>
             <h2 className="text-xl font-medium text-[#111111]">Approve Request on Your Phone</h2>
             <p className="text-xs text-[#6B6E68] max-w-md mx-auto leading-relaxed">
-              We have dispatched a collection request of <strong className="font-mono text-[#0D3B85]">{totalChargeXaf.toLocaleString()} XAF</strong> to <strong>{mobileNumber}</strong> ({selectedMethodName}).
+              We have dispatched a collection request of <strong className="font-mono text-[#0D3B85]">{totalChargeLocal.toLocaleString()} {currencyCode}</strong> to <strong>{mobileNumber}</strong> ({selectedMethodName}).
             </p>
             <div className="p-3 bg-white border border-[#CCE2FA] rounded font-mono text-xs text-[#135194]">
               Transaction Ref: {transactionId}
@@ -225,55 +423,52 @@ function CheckoutContent() {
             <div className="text-[11px] text-[#6B6E68]">
               Do not close this page. Once confirmed on your mobile device, your domain will provision automatically.
             </div>
+            <div className="mt-4 text-2xl font-mono text-[#0D3B85]">
+              {Math.floor(timeLeft / 60).toString().padStart(2, '0')}:{(timeLeft % 60).toString().padStart(2, '0')}
+            </div>
           </Card>
+        )
         ) : (
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {/* Order Summary Column */}
             <div className="md:col-span-1 space-y-4">
-              <Card elevation="surface-1" className="p-5 space-y-4">
+              <Card elevation="surface-1" className="p-5 space-y-4 bg-[#F0F7FF] border-[#BAE6FD] rounded-2xl shadow-xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-mono text-[#0D3B85] uppercase">Order Summary</span>
+                  <span className="text-xs font-bold text-[#0D3B85] uppercase tracking-wider">Order Summary</span>
                   <Badge variant="info">1 Year</Badge>
                 </div>
 
                 <div>
-                  <div className="text-sm font-medium font-mono text-[#111111]">{domain}</div>
-                  <div className="text-xs text-[#6B6E68] mt-0.5">ICANN Accredited Registration</div>
+                  <div className="text-base font-bold font-mono text-[#0D3B85]">{domain}</div>
+                  <div className="text-xs text-[#526B88]">Domain Registration</div>
                 </div>
 
-                <div className="pt-3 border-t border-[#EBEBE7] space-y-2 text-xs">
+                <div className="pt-3 border-t border-[#BAE6FD]/70 space-y-2 text-xs">
                   <div className="flex justify-between">
-                    <span className="text-[#6B6E68]">Standard Fee:</span>
-                    <span className="font-mono">{amountXaf.toLocaleString()} XAF</span>
+                    <span className="text-[#526B88]">Domain Price:</span>
+                    <span className="font-mono font-semibold text-[#111111]">{amountLocal.toLocaleString()} {currencyCode}</span>
                   </div>
                   {passDigitalCharge && (
-                    <div className="flex justify-between text-[#6B6E68]">
-                      <span>Digital Collection (2.5%):</span>
-                      <span className="font-mono">+{digitalChargeFee.toLocaleString()} XAF</span>
+                    <div className="flex justify-between text-[#526B88]">
+                      <span>Processing (2.5%):</span>
+                      <span className="font-mono text-[#111111]">+{digitalChargeFee.toLocaleString()} {currencyCode}</span>
                     </div>
                   )}
-                  <div className="flex justify-between text-[#4E7525]">
+                  <div className="flex justify-between text-emerald-700 font-semibold">
                     <span>WHOIS Privacy:</span>
-                    <span>FREE</span>
+                    <span>Free</span>
                   </div>
                 </div>
 
-                <div className="pt-3 border-t border-[#EBEBE7]">
-                  <div className="flex justify-between items-baseline font-medium text-[#111111]">
-                    <span>Total:</span>
+                <div className="pt-3 border-t border-[#BAE6FD]/70">
+                  <div className="flex justify-between items-baseline font-bold text-[#111111]">
+                    <span className="text-[#0D3B85]">Total:</span>
                     <div className="text-right">
-                      <div className="font-mono text-base text-[#0D3B85]">{totalChargeXaf.toLocaleString()} XAF</div>
-                      <div className="font-mono text-[11px] text-[#6B6E68]">(${rawAmountUsd.toFixed(2)} USD)</div>
+                      <div className="font-mono text-lg text-[#0D3B85]">{totalChargeLocal.toLocaleString()} {currencyCode}</div>
+                      <div className="font-mono text-[11px] text-[#526B88]">(${rawAmountUsd.toFixed(2)} USD)</div>
                     </div>
                   </div>
-                </div>
-
-                <div className="p-3 bg-white border border-[#EBEBE7] rounded text-[11px] text-[#6B6E68] space-y-1.5">
-                  <div className="flex items-center gap-1.5 text-[#4E7525] font-medium">
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                    <span>Direct API Encryption</span>
-                  </div>
-                  <p>Processed securely via Swychr Direct Mobile Money Rails.</p>
                 </div>
               </Card>
             </div>
@@ -281,54 +476,72 @@ function CheckoutContent() {
             {/* Payment Initiation Column */}
             <div className="md:col-span-2 space-y-6">
               <div>
-                <h1 className="text-xl font-medium text-[#111111]">Swychr Direct API Payment</h1>
+                <h1 className="text-2xl font-bold text-[#111111]">Checkout</h1>
                 <p className="text-xs text-[#6B6E68] mt-0.5">
-                  Direct mobile money collection across 18 African countries without external page redirects.
+                  Select your payment method to complete registration.
                 </p>
               </div>
 
               {/* Rails Selector */}
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPaymentRail('wallet_balance')}
+                  className={`p-3 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                    paymentRail === 'wallet_balance'
+                      ? 'bg-white border-[#0D3B85] ring-2 ring-[#0D3B85]/20 shadow-xs'
+                      : 'bg-[#FAFAF9] border-[#EBEBE7] hover:border-gray-300'
+                  }`}
+                >
+                  <Wallet className="w-4 h-4 text-[#0D3B85]" />
+                  <div className="mt-2 text-xs font-bold text-[#111111]">Account Balance</div>
+                  <div className="text-[10px] text-[#7CB342] font-semibold">${userBalanceUsd.toFixed(2)} USD</div>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => setPaymentRail('momo_direct')}
-                  className={`p-3 rounded border text-left flex flex-col justify-between transition-colors ${
+                  className={`p-3 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
                     paymentRail === 'momo_direct'
-                      ? 'bg-white border-[#1B6FC9] ring-1 ring-[#1B6FC9]'
-                      : 'bg-[#FAFAF9] border-[#EBEBE7]'
+                      ? 'bg-white border-[#0D3B85] ring-2 ring-[#0D3B85]/20 shadow-xs'
+                      : 'bg-[#FAFAF9] border-[#EBEBE7] hover:border-gray-300'
                   }`}
                 >
                   <Smartphone className="w-4 h-4 text-[#0D3B85]" />
-                  <div className="mt-2 text-xs font-medium text-[#111111]">Mobile Money</div>
-                  <div className="text-[10px] text-[#6B6E68]">Direct API (Swychr)</div>
+                  <div className="mt-2 text-xs font-bold text-[#111111]">Mobile Money</div>
+                  <div className="text-[10px] text-[#6B6E68]">MTN / Orange / Wave</div>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setPaymentRail('card')}
-                  className={`p-3 rounded border text-left flex flex-col justify-between transition-colors ${
+                  className={`p-3 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
                     paymentRail === 'card'
-                      ? 'bg-white border-[#1B6FC9] ring-1 ring-[#1B6FC9]'
-                      : 'bg-[#FAFAF9] border-[#EBEBE7]'
+                      ? 'bg-white border-[#0D3B85] ring-2 ring-[#0D3B85]/20 shadow-xs'
+                      : 'bg-[#FAFAF9] border-[#EBEBE7] hover:border-gray-300'
                   }`}
                 >
-                  <CreditCard className="w-4 h-4 text-[#1B6FC9]" />
-                  <div className="mt-2 text-xs font-medium text-[#111111]">Credit / Debit Card</div>
-                  <div className="text-[10px] text-[#6B6E68]">Visa & Mastercard</div>
+                  <CreditCard className="w-4 h-4 text-[#0D3B85]" />
+                  <div className="mt-2 text-xs font-bold text-[#111111]">Card</div>
+                  <div className="text-[10px] text-[#6B6E68]">Visa / Mastercard</div>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setPaymentRail('crypto')}
-                  className={`p-3 rounded border text-left flex flex-col justify-between transition-colors ${
+                  className={`p-3 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
                     paymentRail === 'crypto'
-                      ? 'bg-white border-[#1B6FC9] ring-1 ring-[#1B6FC9]'
-                      : 'bg-[#FAFAF9] border-[#EBEBE7]'
+                      ? 'bg-white border-[#0D3B85] ring-2 ring-[#0D3B85]/20 shadow-xs'
+                      : 'bg-[#FAFAF9] border-[#EBEBE7] hover:border-gray-300'
                   }`}
                 >
-                  <Bitcoin className="w-4 h-4 text-[#7CB342]" />
-                  <div className="mt-2 text-xs font-medium text-[#111111]">Cryptocurrency</div>
-                  <div className="text-[10px] text-[#6B6E68]">USDT / BTC</div>
+                  <img
+                    src="/images/payments/usdt-svgrepo-com.png"
+                    alt="Tether USDT"
+                    className="w-5 h-5 object-contain"
+                  />
+                  <div className="mt-2 text-xs font-bold text-[#111111]">Tether USDT</div>
+                  <div className="text-[10px] text-[#6B6E68]">TRC-20 / ERC-20</div>
                 </button>
               </div>
 
@@ -338,87 +551,105 @@ function CheckoutContent() {
                   {/* Country Selector */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="text-xs font-medium text-[#111111] block mb-1">Country</label>
-                      <select
-                        value={countryCode}
-                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setCountryCode(e.target.value)}
-                        className="w-full h-[38px] px-3 bg-white border border-[#DCDDD8] rounded text-xs focus:outline-none focus:border-[#1B6FC9]"
-                      >
-                        <option value="CM">Cameroon (CM)</option>
-                        <option value="CI">Côte d'Ivoire (CI)</option>
-                        <option value="SN">Senegal (SN)</option>
-                        <option value="BF">Burkina Faso (BF)</option>
-                        <option value="ML">Mali (ML)</option>
-                        <option value="TG">Togo (TG)</option>
-                        <option value="BJ">Benin (BJ)</option>
-                        <option value="GA">Gabon (GA)</option>
-                        <option value="CD">DR Congo (CD)</option>
-                        <option value="CG">Congo Brazzaville (CG)</option>
-                        <option value="GH">Ghana (GH)</option>
-                        <option value="NG">Nigeria (NG)</option>
-                        <option value="KE">Kenya (KE)</option>
-                        <option value="RW">Rwanda (RW)</option>
-                        <option value="TZ">Tanzania (TZ)</option>
-                        <option value="UG">Uganda (UG)</option>
-                        <option value="ZM">Zambia (ZM)</option>
-                        <option value="MW">Malawi (MW)</option>
-                      </select>
+                      <label className="text-xs font-bold text-[#111111] block mb-1">Country</label>
+                      <CountrySelect value={countryCode} onChange={setCountryCode} />
                     </div>
 
                     <div>
-                      <label className="text-xs font-medium text-[#111111] block mb-1">Full Name</label>
+                      <label className="text-xs font-bold text-[#111111] block mb-1">Full Name</label>
                       <Input
                         value={customerName}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomerName(e.target.value)}
+                        placeholder="Your full name"
                         required
                       />
                     </div>
                   </div>
 
+                  {paymentRail === 'wallet_balance' && (
+                    <div className="space-y-3 pt-2 border-t border-[#EBEBE7]">
+                      <div className="p-4 rounded-2xl bg-gradient-to-br from-[#091F44] to-[#0D3B85] text-white space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold uppercase tracking-wider text-blue-200">
+                            Available Account Balance
+                          </span>
+                          <span className="text-xs font-mono font-bold text-[#7CB342]">
+                            ${userBalanceUsd.toFixed(2)} USD
+                          </span>
+                        </div>
+                        <div className="text-xs text-blue-100">
+                          Domain purchase cost: <strong>${rawAmountUsd.toFixed(2)} USD</strong> (≈ {amountLocal.toLocaleString()} XAF)
+                        </div>
+                        {userBalanceUsd >= rawAmountUsd ? (
+                          <div className="text-[11px] text-[#7CB342] font-semibold pt-1 border-t border-white/10">
+                            ✓ Sufficient balance available for instant settlement.
+                          </div>
+                        ) : (
+                          <div className="text-[11px] text-red-300 font-semibold pt-1 border-t border-white/10">
+                            ⚠ Balance insufficient (${(rawAmountUsd - userBalanceUsd).toFixed(2)} needed). Please top up in dashboard or use Mobile Money.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {paymentRail === 'momo_direct' && (
                     <div className="space-y-4 pt-2 border-t border-[#EBEBE7]">
                       <div>
-                        <label className="text-xs font-medium text-[#111111] block mb-1.5">
-                          Available Payment Operator in {countryCode}
+                        <label className="text-xs font-bold text-[#111111] block mb-2">
+                          Select Operator
                         </label>
-                        <div className="flex gap-2">
-                          {availableMethods.map((m) => (
-                            <button
-                              key={m.payment_method}
-                              type="button"
-                              onClick={() => setSelectedMethodName(m.payment_method)}
-                              className={`px-3 py-1.5 text-xs font-medium rounded border transition-colors ${
-                                selectedMethodName === m.payment_method
-                                  ? 'bg-white border-[#1B6FC9] text-[#0D3B85]'
-                                  : 'bg-[#FAFAF9] border-[#EBEBE7] text-[#6B6E68]'
-                              }`}
-                            >
-                              {m.payment_method} ({m.mobile_format})
-                            </button>
-                          ))}
+                        <div className="flex flex-wrap gap-2">
+                          {availableMethods.map((m) => {
+                            const isSelected = selectedMethodName === m.payment_method;
+                            const pm = m.payment_method.toUpperCase();
+                            return (
+                              <button
+                                key={m.payment_method}
+                                type="button"
+                                onClick={() => setSelectedMethodName(m.payment_method)}
+                                className={`px-3 py-2 rounded-xl border flex items-center gap-2 transition-all cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-white border-[#0D3B85] ring-2 ring-[#0D3B85]/20 shadow-xs'
+                                    : 'bg-[#FAFAF9] border-[#EBEBE7] hover:border-gray-300'
+                                }`}
+                              >
+                                {pm.includes('MTN') && <MtnMomoBadge size="sm" />}
+                                {pm.includes('ORANGE') && <OrangeMoneyBadge size="sm" />}
+                                {pm.includes('WAVE') && <WaveBadge size="sm" />}
+                                {(pm.includes('MPESA') || pm.includes('VODACOM')) && <MpesaBadge size="sm" />}
+                                {pm.includes('AIRTEL') && <AirtelMoneyBadge size="sm" />}
+                                {pm.includes('MOOV') && <MoovMoneyBadge size="sm" />}
+                                {!pm.includes('MTN') && !pm.includes('ORANGE') && !pm.includes('WAVE') && !pm.includes('MPESA') && !pm.includes('VODACOM') && !pm.includes('AIRTEL') && !pm.includes('MOOV') && (
+                                  <span className="text-xs font-bold text-[#111111]">{m.payment_method}</span>
+                                )}
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                          <label className="text-xs font-medium text-[#111111] block mb-1">
-                            Mobile Number (format: {availableMethods.find(m => m.payment_method === selectedMethodName)?.mobile_format || '6XXXXXXXX'})
+                          <label className="text-xs font-bold text-[#111111] block mb-1">
+                            Phone Number
                           </label>
                           <Input
                             type="tel"
                             value={mobileNumber}
-                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setMobileNumber(e.target.value)}
-                            placeholder="651791902"
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePhoneChange(e.target.value)}
+                            placeholder="6XXXXXXXX"
                             required
                           />
                         </div>
 
                         <div>
-                          <label className="text-xs font-medium text-[#111111] block mb-1">Customer Email</label>
+                          <label className="text-xs font-bold text-[#111111] block mb-1">Email</label>
                           <Input
                             type="email"
                             value={customerEmail}
                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomerEmail(e.target.value)}
+                            placeholder="name@domain.com"
                             required
                           />
                         </div>
@@ -432,7 +663,7 @@ function CheckoutContent() {
                           className="rounded border-[#DCDDD8] text-[#0D3B85] focus:ring-[#1B6FC9]"
                         />
                         <span className="text-xs text-[#6B6E68]">
-                          Include 2.5% digital cash processing surcharge in mobile collection
+                          Include 2.5% processing fee
                         </span>
                       </label>
                     </div>
@@ -441,16 +672,16 @@ function CheckoutContent() {
                   {paymentRail === 'card' && (
                     <div className="space-y-3 pt-2 border-t border-[#EBEBE7]">
                       <div>
-                        <label className="text-xs font-medium text-[#111111] block mb-1">Card Number</label>
+                        <label className="text-xs font-bold text-[#111111] block mb-1">Card Number</label>
                         <Input placeholder="4000 1234 5678 9010" required />
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="text-xs font-medium text-[#111111] block mb-1">MM/YY</label>
+                          <label className="text-xs font-bold text-[#111111] block mb-1">Expiry (MM/YY)</label>
                           <Input placeholder="08/28" required />
                         </div>
                         <div>
-                          <label className="text-xs font-medium text-[#111111] block mb-1">CVC</label>
+                          <label className="text-xs font-bold text-[#111111] block mb-1">CVV</label>
                           <Input type="password" placeholder="123" maxLength={4} required />
                         </div>
                       </div>
@@ -459,11 +690,11 @@ function CheckoutContent() {
 
                   {paymentRail === 'crypto' && (
                     <div className="space-y-3 pt-2 border-t border-[#EBEBE7]">
-                      <div className="p-3 bg-white border border-[#DCDDD8] rounded font-mono text-xs text-[#111111] break-all">
+                      <div className="p-3 bg-[#FAFAF9] border border-[#DCDDD8] rounded-xl font-mono text-xs text-[#111111] break-all">
                         TNV19xK94pMz8Q48h30aLv492OneAllHostUSDT
                       </div>
-                      <p className="text-[11px] text-[#6B6E68]">
-                        Send exactly <strong className="text-[#111111]">${rawAmountUsd.toFixed(2)} USDT (TRC-20)</strong>.
+                      <p className="text-xs text-[#6B6E68]">
+                        Send <strong className="text-[#111111]">${rawAmountUsd.toFixed(2)} USDT (TRC-20)</strong> to the address above.
                       </p>
                     </div>
                   )}
@@ -472,11 +703,14 @@ function CheckoutContent() {
                     <Button
                       variant="primary"
                       size="lg"
-                      className="w-full font-medium"
+                      className="w-full font-bold bg-[#DE3723] hover:bg-[#C52D1C] text-white rounded-xl h-11"
                       isLoading={isSubmitting}
+                      disabled={paymentRail === 'wallet_balance' && userBalanceUsd < rawAmountUsd}
                     >
-                      {paymentRail === 'momo_direct'
-                        ? `Authorize ${totalChargeXaf.toLocaleString()} XAF on ${selectedMethodName}`
+                      {paymentRail === 'wallet_balance'
+                        ? `Pay with Balance ($${rawAmountUsd.toFixed(2)} USD)`
+                        : paymentRail === 'momo_direct'
+                        ? `Pay ${totalChargeLocal.toLocaleString()} ${currencyCode}`
                         : `Pay $${rawAmountUsd.toFixed(2)} USD`}
                     </Button>
                   </div>

@@ -1,142 +1,104 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { Header } from '../../components/Header';
 import { Footer } from '../../components/Footer';
-import { Card, Badge, Button, Input } from '@oneallhost/ui';
-import { Globe, ArrowRight, ShieldCheck, CheckCircle2, Lock, KeyRound, AlertCircle } from 'lucide-react';
-import Link from 'next/link';
 
-export default function DomainTransferPage() {
-  const [domainName, setDomainName] = useState('');
-  const [authCode, setAuthCode] = useState('');
-  const [isChecking, setIsChecking] = useState(false);
-  const [step, setStep] = useState<'input' | 'verified' | 'success'>('input');
+export default function TransferPage() {
+  const [domainToTransfer, setDomainToTransfer] = useState('');
 
-  const handleVerifyTransfer = (e: React.FormEvent) => {
+  const handleTransferSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!domainName || !authCode) return;
-
-    setIsChecking(true);
-    setTimeout(() => {
-      setIsChecking(false);
-      setStep('verified');
-    }, 600);
+    if (domainToTransfer.trim()) {
+      window.location.href = `/checkout?domain=${encodeURIComponent(domainToTransfer)}&type=transfer`;
+    }
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-white">
+    <div className="min-h-screen bg-[#F6F7F5] text-[#111111] font-sans flex flex-col">
       <Header />
 
-      <main className="flex-1 max-w-4xl mx-auto px-4 sm:px-6 py-16 w-full">
-        <div className="text-center max-w-2xl mx-auto space-y-3">
-          <Badge variant="info">ICANN Registrar Inbound Transfer</Badge>
-          <h1 className="text-3xl sm:text-4xl font-medium text-[#111111]">
-            Transfer Your Domain to Oneallhost
+      {/* Hero */}
+      <section className="bg-[#091F44] text-white py-20 px-4 sm:px-8">
+        <div className="max-w-4xl mx-auto text-center space-y-6">
+          <span className="inline-block px-3 py-1 bg-[#0D3B85] text-white text-xs font-black uppercase rounded tracking-wide">
+            Domain &amp; Hosting Migration
+          </span>
+          <h1 className="text-3xl sm:text-5xl font-extrabold font-display text-white leading-tight">
+            Transfer Your Domains &amp; Hosting to Oneallhost
           </h1>
-          <p className="text-xs sm:text-sm text-[#6B6E68]">
-            Consolidate your domains under Oneallhost with free WHOIS privacy, Anycast DNS, and 1 year extension included with every transfer.
+          <p className="text-base sm:text-lg text-white/80 max-w-2xl mx-auto leading-relaxed">
+            Get +1 Year FREE domain registration extension when you transfer. Plus zero-downtime free hosting migration handled by our experts.
+          </p>
+
+          {/* Transfer Search Input */}
+          <form onSubmit={handleTransferSubmit} className="max-w-2xl mx-auto pt-4">
+            <div className="flex flex-col sm:flex-row items-center gap-2 bg-white p-2 rounded-2xl shadow-xl">
+              <div className="flex-1 flex items-center gap-3 px-4 w-full">
+                <i className="fa-solid fa-arrow-right-arrow-left text-[#6B6E68]" />
+                <input
+                  type="text"
+                  value={domainToTransfer}
+                  onChange={(e) => setDomainToTransfer(e.target.value)}
+                  placeholder="Enter your domain to transfer (e.g. mybrand.com)"
+                  className="w-full h-11 text-sm text-[#111111] placeholder:text-[#6B6E68] outline-none font-medium bg-transparent"
+                />
+              </div>
+              <button
+                type="submit"
+                className="w-full sm:w-auto h-11 px-8 bg-[#D32F2F] hover:bg-red-700 text-white font-extrabold text-xs rounded-xl transition-colors cursor-pointer shrink-0"
+              >
+                Transfer Now
+              </button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      {/* 3 Step Transfer Process */}
+      <section className="py-24 px-4 sm:px-8 max-w-7xl mx-auto space-y-12">
+        <div className="text-center space-y-3 max-w-2xl mx-auto">
+          <h2 className="text-3xl font-extrabold font-display text-[#111111]">
+            Simple 3-Step Domain Transfer Process
+          </h2>
+          <p className="text-sm text-[#6B6E68]">
+            Moving your domains is fast, safe, and backed by our sub-3-minute DNS propagation.
           </p>
         </div>
 
-        <div className="mt-12 max-w-xl mx-auto">
-          {step === 'input' && (
-            <Card elevation="surface-1" className="p-6 sm:p-8 space-y-5">
-              <form onSubmit={handleVerifyTransfer} className="space-y-4">
-                <div>
-                  <label className="text-xs font-medium text-[#111111] block mb-1">
-                    Domain Name to Transfer
-                  </label>
-                  <Input
-                    placeholder="mycompany.com"
-                    value={domainName}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDomainName(e.target.value)}
-                    required
-                  />
-                </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="bg-white p-8 rounded-3xl space-y-4 shadow-xs border-0 text-center">
+            <div className="w-12 h-12 rounded-full bg-blue-50 text-[#0D3B85] font-black flex items-center justify-center mx-auto text-lg">
+              1
+            </div>
+            <h3 className="text-xl font-bold text-[#111111]">Unlock Your Domain</h3>
+            <p className="text-xs text-[#6B6E68] leading-relaxed">
+              Log into your current registrar, unlock your domain name, and obtain your EPP transfer authorization code.
+            </p>
+          </div>
 
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-medium text-[#111111]">
-                      EPP Authorization Code
-                    </label>
-                    <span className="text-[11px] text-[#6B6E68]">From current registrar</span>
-                  </div>
-                  <Input
-                    type="password"
-                    placeholder="EPP-•••••••••"
-                    value={authCode}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAuthCode(e.target.value)}
-                    required
-                  />
-                </div>
+          <div className="bg-white p-8 rounded-3xl space-y-4 shadow-xs border-0 text-center">
+            <div className="w-12 h-12 rounded-full bg-green-50 text-[#7CB342] font-black flex items-center justify-center mx-auto text-lg">
+              2
+            </div>
+            <h3 className="text-xl font-bold text-[#111111]">Enter Domain &amp; Code</h3>
+            <p className="text-xs text-[#6B6E68] leading-relaxed">
+              Type your domain in the search box above, enter your auth code, and confirm your transfer order.
+            </p>
+          </div>
 
-                {/* Transfer checklist */}
-                <div className="p-3 bg-white border border-[#EBEBE7] rounded text-[11px] text-[#6B6E68] space-y-1.5">
-                  <div className="font-medium text-[#111111]">Transfer Prerequisites:</div>
-                  <div className="flex items-center gap-1.5">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-[#7CB342]" />
-                    <span>Domain is not under 60-day ICANN lock</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-[#7CB342]" />
-                    <span>WHOIS administrative email is accessible</span>
-                  </div>
-                </div>
-
-                <div className="pt-2">
-                  <Button variant="primary" size="md" className="w-full" isLoading={isChecking}>
-                    Verify domain & authorization code
-                  </Button>
-                </div>
-              </form>
-            </Card>
-          )}
-
-          {step === 'verified' && (
-            <Card elevation="surface-1" className="p-6 sm:p-8 space-y-5 border-[#CCE2FA] bg-[#EDF5FD]">
-              <div className="w-10 h-10 rounded-full bg-white border border-[#CCE2FA] flex items-center justify-center text-[#1B6FC9] mx-auto">
-                <Globe className="w-5 h-5" />
-              </div>
-
-              <div className="text-center">
-                <Badge variant="success">Domain Eligible for Transfer</Badge>
-                <h3 className="mt-2 text-lg font-medium text-[#111111] font-mono">{domainName}</h3>
-                <p className="mt-1 text-xs text-[#6B6E68]">
-                  Transfer includes a 1-year registration extension per ICANN consensus policy.
-                </p>
-              </div>
-
-              <div className="p-4 bg-white border border-[#CCE2FA] rounded space-y-2 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-[#6B6E68]">Transfer & 1-Year Extension:</span>
-                  <span className="font-mono">$13.99 (8,611 XAF)</span>
-                </div>
-                <div className="flex justify-between text-[#4E7525]">
-                  <span>WHOIS Privacy:</span>
-                  <span>FREE</span>
-                </div>
-                <div className="pt-2 border-t border-[#EBEBE7] flex justify-between font-medium text-[#0D3B85]">
-                  <span>Total Due:</span>
-                  <span className="font-mono">$13.99 USD</span>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <Button variant="outline" size="sm" onClick={() => setStep('input')}>
-                  Back
-                </Button>
-                <Link href={`/checkout?domain=${domainName}&amount=13.99`}>
-                  <Button variant="primary" size="sm" className="gap-1.5">
-                    <span>Proceed to payment</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </Button>
-                </Link>
-              </div>
-            </Card>
-          )}
+          <div className="bg-white p-8 rounded-3xl space-y-4 shadow-xs border-0 text-center">
+            <div className="w-12 h-12 rounded-full bg-red-50 text-[#D32F2F] font-black flex items-center justify-center mx-auto text-lg">
+              3
+            </div>
+            <h3 className="text-xl font-bold text-[#111111]">Enjoy +1 Year Free</h3>
+            <p className="text-xs text-[#6B6E68] leading-relaxed">
+              Your domain transfer completes smoothly with +1 extra year added to your expiration date automatically.
+            </p>
+          </div>
         </div>
-      </main>
+      </section>
 
       <Footer />
     </div>

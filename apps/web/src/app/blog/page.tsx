@@ -1,0 +1,8 @@
+'use client';
+
+import React from 'react';
+import HelpCenterPage from '../help-center/page';
+
+export default function BlogPage() {
+  return <HelpCenterPage />;
+}

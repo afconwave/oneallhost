@@ -1,7 +1,7 @@
 import React from 'react';
 import { Header } from '../../components/Header';
 import { Footer } from '../../components/Footer';
-import { RentalDiagram } from '../../components/RentalDiagram';
+import { RentalDiagram } from '@/components/domains';
 import { Card, Badge, Button } from '@oneallhost/ui';
 import Link from 'next/link';
 import { ArrowRight, CheckCircle2 } from 'lucide-react';

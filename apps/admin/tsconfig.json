@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -11,7 +15,7 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "incremental": true,
     "plugins": [
       {
@@ -19,15 +23,37 @@
       }
     ],
     "baseUrl": ".",
-    "typeRoots": ["./node_modules/@types", "../../node_modules/@types"],
+    "typeRoots": [
+      "./node_modules/@types",
+      "../../node_modules/@types"
+    ],
     "paths": {
-      "@/*": ["./src/*"],
-      "@oneallhost/ui": ["../../packages/ui/src"],
-      "@oneallhost/payments": ["../../packages/payments/src"],
-      "@oneallhost/db": ["../../packages/db/src"],
-      "@oneallhost/config": ["../../packages/config"]
+      "@/*": [
+        "./src/*"
+      ],
+      "@oneallhost/ui": [
+        "../../packages/ui/src"
+      ],
+      "@oneallhost/payments": [
+        "../../packages/payments/src"
+      ],
+      "@oneallhost/db": [
+        "../../packages/db/src"
+      ],
+      "@oneallhost/config": [
+        "../../packages/config"
+      ]
     }
   },
-  "include": ["next-env.d.ts", "src/types/**/*.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
+  "include": [
+    "next-env.d.ts",
+    "src/types/**/*.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }

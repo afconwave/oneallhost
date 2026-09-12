@@ -36,7 +36,7 @@ export default function ProfileManagementPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetch('http://localhost:4000/api/v1/users/me');
+      const res = await fetch('/api/users/me');
       if (!res.ok) throw new Error('Failed to load user profile from server');
       const data = await res.json();
       if (data && data.user) {
@@ -63,7 +63,7 @@ export default function ProfileManagementPage() {
     setSaveSuccess(false);
 
     try {
-      const res = await fetch('http://localhost:4000/api/v1/users/me', {
+      const res = await fetch('/api/users/me', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -89,7 +89,7 @@ export default function ProfileManagementPage() {
   const handleEnable2FA = async () => {
     setIsEnabling2FA(true);
     try {
-      const res = await fetch('http://localhost:4000/api/v1/users/2fa/enable', {
+      const res = await fetch('/api/users/2fa/enable', {
         method: 'POST',
       });
       if (res.ok) {

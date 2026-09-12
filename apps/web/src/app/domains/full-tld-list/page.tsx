@@ -9,7 +9,7 @@ import Link from 'next/link';
 
 interface TldItem {
   tld: string;
-  category: 'popular' | 'business' | 'tech' | 'regional' | 'ecommerce';
+  category: 'popular' | 'business' | 'tech' | 'regional' | 'ecommerce' | 'government';
   retailUsd: number;
   renewalUsd: number;
   privacy: boolean;
@@ -22,6 +22,27 @@ const TLD_DATA: TldItem[] = [
   { tld: '.com', category: 'popular', retailUsd: 13.99, renewalUsd: 13.99, privacy: true, featured: true, badge: 'MOST POPULAR', desc: 'The gold standard domain extension for business worldwide' },
   { tld: '.cm', category: 'regional', retailUsd: 37.99, renewalUsd: 37.99, privacy: false, featured: true, badge: 'CAMEROON & CEMAC', desc: 'Official country-code top-level domain for Cameroon' },
   { tld: '.africa', category: 'regional', retailUsd: 19.99, renewalUsd: 19.99, privacy: true, featured: true, badge: 'PAN-AFRICA', desc: 'The unified digital identity for African innovators and enterprises' },
+  { tld: '.ng', category: 'regional', retailUsd: 29.99, renewalUsd: 29.99, privacy: true, featured: true, badge: 'NIGERIA', desc: 'Official country-code domain for Nigeria' },
+  { tld: '.com.ng', category: 'regional', retailUsd: 4.99, renewalUsd: 4.99, privacy: true, badge: 'NIGERIA COMMERCIAL', desc: 'Commercial domain for Nigerian businesses and startups' },
+  { tld: '.gh', category: 'regional', retailUsd: 45.00, renewalUsd: 45.00, privacy: true, badge: 'GHANA', desc: 'Official country-code domain for Ghana' },
+  { tld: '.ke', category: 'regional', retailUsd: 34.99, renewalUsd: 34.99, privacy: true, badge: 'KENYA', desc: 'Official country-code domain for Kenya' },
+  { tld: '.co.ke', category: 'regional', retailUsd: 14.99, renewalUsd: 14.99, privacy: true, badge: 'KENYA COMMERCIAL', desc: 'Kenya premier commercial namespace' },
+  { tld: '.rw', category: 'regional', retailUsd: 39.99, renewalUsd: 39.99, privacy: true, badge: 'RWANDA', desc: 'Official country-code domain for Rwanda' },
+  { tld: '.za', category: 'regional', retailUsd: 19.99, renewalUsd: 19.99, privacy: true, badge: 'SOUTH AFRICA', desc: 'Official country-code domain for South Africa' },
+  { tld: '.co.za', category: 'regional', retailUsd: 11.99, renewalUsd: 11.99, privacy: true, badge: 'SA COMMERCIAL', desc: 'The leading commercial domain for South African enterprises' },
+  { tld: '.ci', category: 'regional', retailUsd: 49.99, renewalUsd: 49.99, privacy: true, badge: 'COTE D\'IVOIRE', desc: 'Official country-code domain for Côte d\'Ivoire' },
+  { tld: '.sn', category: 'regional', retailUsd: 45.00, renewalUsd: 45.00, privacy: true, badge: 'SENEGAL', desc: 'Official country-code domain for Senegal' },
+  { tld: '.tz', category: 'regional', retailUsd: 38.00, renewalUsd: 38.00, privacy: true, badge: 'TANZANIA', desc: 'Official country-code domain for Tanzania' },
+  { tld: '.ug', category: 'regional', retailUsd: 35.00, renewalUsd: 35.00, privacy: true, badge: 'UGANDA', desc: 'Official country-code domain for Uganda' },
+  { tld: '.gov.cm', category: 'government', retailUsd: 49.99, renewalUsd: 49.99, privacy: false, featured: true, badge: 'OFFICIAL GOV', desc: 'Official domain for Cameroon Government ministries, state agencies, and public institutions' },
+  { tld: '.gov.ng', category: 'government', retailUsd: 49.99, renewalUsd: 49.99, privacy: false, badge: 'OFFICIAL GOV', desc: 'Official domain for Nigerian Government ministries, departments, and parastatals' },
+  { tld: '.gov.gh', category: 'government', retailUsd: 55.00, renewalUsd: 55.00, privacy: false, badge: 'OFFICIAL GOV', desc: 'Official domain for Ghana Government ministries and statutory agencies' },
+  { tld: '.gov.rw', category: 'government', retailUsd: 49.99, renewalUsd: 49.99, privacy: false, badge: 'OFFICIAL GOV', desc: 'Official domain for Government of Rwanda administrative entities' },
+  { tld: '.gov.za', category: 'government', retailUsd: 45.00, renewalUsd: 45.00, privacy: false, badge: 'OFFICIAL GOV', desc: 'Official domain for South African National and Provincial Government' },
+  { tld: '.gov.ke', category: 'government', retailUsd: 49.99, renewalUsd: 49.99, privacy: false, badge: 'OFFICIAL GOV', desc: 'Official domain for Kenyan Government ministries and state corporations' },
+  { tld: '.edu.cm', category: 'government', retailUsd: 29.99, renewalUsd: 29.99, privacy: false, badge: 'ACADEMIC', desc: 'Accredited universities, polytechnics, and schools across Cameroon' },
+  { tld: '.co.cm', category: 'regional', retailUsd: 24.99, renewalUsd: 24.99, privacy: false, badge: 'CAMEROON COMMERCIAL', desc: 'Cameroon commercial domain for local companies and SMEs' },
+  { tld: '.org.cm', category: 'regional', retailUsd: 24.99, renewalUsd: 24.99, privacy: false, badge: 'CAMEROON NGO', desc: 'Non-profit organizations, associations, and charities in Cameroon' },
   { tld: '.store', category: 'ecommerce', retailUsd: 6.99, renewalUsd: 29.99, privacy: true, featured: true, badge: 'HOT DEAL', desc: 'Dedicated e-commerce namespace for retail and online shops' },
   { tld: '.net', category: 'popular', retailUsd: 15.99, renewalUsd: 15.99, privacy: true, desc: 'A true internet original for infrastructure and technology' },
   { tld: '.org', category: 'popular', retailUsd: 14.99, renewalUsd: 14.99, privacy: true, desc: 'The trusted standard for organizations, non-profits, and communities' },
@@ -44,7 +65,8 @@ const TLD_DATA: TldItem[] = [
 const CATEGORIES = [
   { id: 'all', label: 'All TLDs' },
   { id: 'popular', label: 'Popular' },
-  { id: 'regional', label: 'Africa & Regional' },
+  { id: 'regional', label: 'Africa ccTLDs' },
+  { id: 'government', label: 'Government & Institutional' },
   { id: 'tech', label: 'Tech & AI' },
   { id: 'ecommerce', label: 'eCommerce' },
   { id: 'business', label: 'Business' },

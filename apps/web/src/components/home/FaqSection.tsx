@@ -8,24 +8,44 @@ export const FaqSection: React.FC = () => {
 
   const faqs = [
     {
-      q: 'How does live domain registration work with Namecheap & Oneallhost?',
-      a: 'Oneallhost is directly connected to the Namecheap XML registry infrastructure. When you search and pay for a domain, our automated backend provisions the domain in real time, applies free WHOIS privacy protection, and initializes Anycast DNS zone files immediately.',
+      q: 'Is Oneallhost an ICANN-accredited and trusted domain registrar?',
+      a: 'Yes. Oneallhost operates on fully ICANN-compliant, high-availability registry infrastructure. When you register any domain through Oneallhost, your registration is provisioned directly into global authoritative registries with sub-3-minute global root DNS propagation, automated DNSSEC signing, and lifetime WHOIS privacy masking.',
     },
     {
-      q: 'What is a short-term subdomain rental and how does the 100% rebate work?',
-      a: 'If you only need a domain for a 24-hour launch, a weekend hackathon, or a 7-day client demo, you can lease a staging subdomain (e.g. yourname.oah.link) starting at $1.99. If you later decide to buy the full permanent domain (e.g. yourname.com), 100% of the rental fee you paid is deducted as a direct rebate at checkout.',
+      q: 'Can government ministries, public agencies, and schools register .gov and .edu domains?',
+      a: 'Yes. Oneallhost supports official government and institutional extensions across Africa and worldwide (including .gov, .gov.cm, .gov.ng, .gov.gh, .gov.rw, .gov.za, .gov.ke, and .edu.cm). Our compliance desk provides dedicated verification assistance for official public sector bodies, municipal entities, and accredited educational institutions.',
     },
     {
-      q: 'Which payment methods are supported?',
-      a: 'We support native in-app MTN Mobile Money and Orange Money across Cameroon and CEMAC countries via direct API, as well as Visa, Mastercard, and USDT cryptocurrency with zero external redirects.',
+      q: 'Which African country-code domains (ccTLDs) are supported?',
+      a: 'We provide direct registration for all top African ccTLDs including Cameroon (.cm, .co.cm), Nigeria (.ng, .com.ng), Ghana (.gh, .com.gh), Kenya (.ke, .co.ke), Rwanda (.rw, .co.rw), South Africa (.za, .co.za), Côte d\'Ivoire (.ci), Senegal (.sn), Tanzania (.tz), Uganda (.ug), and the pan-African .africa extension, with instant local Mobile Money settlement.',
+    },
+    {
+      q: 'How does instant domain registration work on Oneallhost?',
+      a: 'Oneallhost operates on enterprise Anycast registry infrastructure. When you search and complete your order, our automated provisioning engine immediately reserves your domain in the global authoritative registry, applies free lifetime WHOIS identity privacy protection, and activates Anycast DNS zone routing worldwide within seconds.',
+    },
+    {
+      q: 'What is a developer staging rental and how does the 100% rebate work?',
+      a: 'If you need a domain for a staging launch, client presentation, or temporary project, you can lease a staging subdomain (e.g. yourname.oneall.app) starting at $1.99. When you decide to register the permanent top-level domain (e.g. yourname.com), 100% of the rental fees paid are automatically applied as a direct rebate discount at checkout.',
+    },
+    {
+      q: 'Which local and international payment methods are accepted?',
+      a: 'We support direct in-app African Mobile Money (MTN MoMo, Orange Money, Wave) across 18 African nations with real-time settlement, international credit/debit cards (Visa, Mastercard, American Express), and Tether USDT (TRC-20 / ERC-20) with zero external redirects.',
     },
     {
       q: 'Is WHOIS identity privacy protection included for free?',
-      a: 'Yes. All eligible TLD registrations (.com, .africa, .org, .net, .io, etc.) include free lifetime WHOIS privacy masking to protect your personal contact information from spammers and scraping.',
+      a: 'Yes. All eligible domain registrations (.com, .cm, .org, .net, .io, .africa, .tech, etc.) include lifetime WHOIS privacy masking free of charge, keeping your personal name, address, and phone number shielded from spammers and scraping bots.',
     },
     {
-      q: 'Can I transfer my existing domain to Oneallhost?',
-      a: 'Yes. You can transfer any existing domain from other registrars. All inbound transfers include an automatic 1-year registration extension and free DNS management.',
+      q: 'How does the Account Wallet and Auto-Debit renewal system work?',
+      a: 'You can fund your account wallet balance at any time using Mobile Money, Card, or Crypto. When Auto-Debit is enabled, expiring domains and hosting instances automatically renew 7 days prior to expiration from your wallet balance, guaranteeing 100% uptime with zero service interruptions.',
+    },
+    {
+      q: 'Can I transfer my existing domains and web hosting to Oneallhost?',
+      a: 'Yes. Inbound domain transfers receive an automatic 1-year registration extension and free DNS management. In addition, our migration team moves your existing cPanel files, databases, and mailboxes with zero downtime at no cost.',
+    },
+    {
+      q: 'What security features protect my domains and websites from theft or hijacking?',
+      a: 'Every Oneallhost domain includes Registrar Transfer Lock (clientTransferProhibited), 2-Factor Authentication (2FA) for your account, automated DNSSEC record generation, and real-time DNS modification alerts to prevent unauthorized transfers or unauthorized record tampering.',
     },
   ];
 

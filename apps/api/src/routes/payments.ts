@@ -173,55 +173,93 @@ paymentRouter.post('/webhook', async (req: Request, res: Response) => {
   }
 });
 
-// 4. Issue Virtual Visa/Mastercard (Swychr Virtual Cards API)
-paymentRouter.post('/virtual-card/issue', async (req: Request, res: Response) => {
-  try {
-    const { cardHolder = 'ACCOUNT OWNER', initialBalanceUsd = 50, brand = 'Visa' } = req.body;
-    const cardId = `card-${Date.now()}`;
-    const newCard = {
-      id: cardId,
-      cardNumber: `4${Math.floor(100 + Math.random() * 900)} ${Math.floor(1000 + Math.random() * 9000)} ${Math.floor(1000 + Math.random() * 9000)} ${Math.floor(1000 + Math.random() * 9000)}`,
-      cardHolder: cardHolder.toUpperCase(),
-      expiry: '08/29',
-      cvv: `${Math.floor(100 + Math.random() * 900)}`,
-      balanceUsd: Number(initialBalanceUsd),
-      balanceXaf: Math.round(Number(initialBalanceUsd) * 615.5),
-      brand,
-      status: 'active',
-      createdAt: new Date().toISOString(),
-    };
-    virtualCardsStore[cardId] = newCard;
-    return res.json({ success: true, card: newCard });
-  } catch (error: any) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-// 5. Top-up Virtual Card balance via Mobile Money
-paymentRouter.post('/virtual-card/topup', async (req: Request, res: Response) => {
-  try {
-    const { cardId = 'card-1', amountXaf = 10000 } = req.body;
-    const card = virtualCardsStore[cardId];
-    if (!card) return res.status(404).json({ error: 'Virtual Card not found' });
-
-    const additionalUsd = Number((amountXaf / 615.5).toFixed(2));
-    card.balanceXaf += Number(amountXaf);
-    card.balanceUsd = Number((card.balanceUsd + additionalUsd).toFixed(2));
-
-    return res.json({
-      success: true,
-      card,
-      message: `Card funded with ${amountXaf} XAF (~$${additionalUsd})`,
-    });
-  } catch (error: any) {
-    return res.status(500).json({ error: error.message });
-  }
-});
-
-// 6. Get Virtual Cards
-paymentRouter.get('/virtual-cards', (req: Request, res: Response) => {
+// 4. Get Saved Payment Methods
+paymentRouter.get('/methods', (req: Request, res: Response) => {
+  const userId = (req.query.userId as string) || 'usr-1';
+  const methods = db.paymentMethodsRepo.list(userId);
   return res.json({
     success: true,
-    cards: Object.values(virtualCardsStore),
+    methods,
+  });
+});
+
+// 5. Add / Save New Payment Card
+paymentRouter.post('/methods', (req: Request, res: Response) => {
+  try {
+    const {
+      cardNumber,
+      cardHolder = 'Account Owner',
+      expiry = '12/28',
+      brand,
+      isDefault = false,
+      userId = 'usr-1',
+    } = req.body;
+
+    if (!cardNumber) {
+      return res.status(400).json({ error: 'Card number is required' });
+    }
+
+    const cleanCard = cardNumber.replace(/\s+/g, '');
+    const last4 = cleanCard.slice(-4) || '4242';
+
+    // Auto-detect brand from card number prefix if not explicitly provided
+    let detectedBrand = brand;
+    if (!detectedBrand) {
+      if (cleanCard.startsWith('4')) detectedBrand = 'Visa';
+      else if (cleanCard.startsWith('5') || cleanCard.startsWith('2')) detectedBrand = 'Mastercard';
+      else if (cleanCard.startsWith('3')) detectedBrand = 'Amex';
+      else detectedBrand = 'Visa';
+    }
+
+    const newMethod = db.paymentMethodsRepo.create({
+      userId,
+      type: 'card',
+      cardHolder: cardHolder.toUpperCase(),
+      brand: detectedBrand,
+      last4,
+      expiry,
+      isDefault: Boolean(isDefault),
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: 'Card saved successfully for transactions and automatic renewals',
+      method: newMethod,
+    });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message || 'Failed to save payment card' });
+  }
+});
+
+// 6. Delete / Remove Saved Payment Method
+paymentRouter.delete('/methods/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const userId = (req.query.userId as string) || 'usr-1';
+  const success = db.paymentMethodsRepo.delete(id, userId);
+
+  if (!success) {
+    return res.status(404).json({ error: 'Payment method not found' });
+  }
+
+  return res.json({
+    success: true,
+    message: 'Payment method removed successfully',
+  });
+});
+
+// 7. Set Default Payment Method
+paymentRouter.put('/methods/:id/default', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const userId = (req.query.userId as string) || 'usr-1';
+  const updated = db.paymentMethodsRepo.setDefault(id, userId);
+
+  if (!updated) {
+    return res.status(404).json({ error: 'Payment method not found' });
+  }
+
+  return res.json({
+    success: true,
+    message: 'Default payment method updated',
+    method: updated,
   });
 });

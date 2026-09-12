@@ -78,10 +78,10 @@ export const ReviewsSection: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center justify-center gap-6 opacity-60">
-          <img src="/images/namecheap/figma-logo.svg" alt="Figma" className="h-5 w-auto grayscale object-contain" />
-          <img src="/images/namecheap/imgur-logo.svg" alt="Imgur" className="h-5 w-auto grayscale object-contain" />
-          <img src="/images/namecheap/privacy-logo.svg" alt="Privacy" className="h-5 w-auto grayscale object-contain" />
-          <img src="/images/namecheap/buffer-logo.svg" alt="Buffer" className="h-5 w-auto grayscale object-contain" />
+          <img src="/images/platform/figma-logo.svg" alt="Figma" className="h-5 w-auto grayscale object-contain" />
+          <img src="/images/platform/imgur-logo.svg" alt="Imgur" className="h-5 w-auto grayscale object-contain" />
+          <img src="/images/platform/privacy-logo.svg" alt="Privacy" className="h-5 w-auto grayscale object-contain" />
+          <img src="/images/platform/buffer-logo.svg" alt="Buffer" className="h-5 w-auto grayscale object-contain" />
         </div>
       </div>
 

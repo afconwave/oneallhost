@@ -350,7 +350,7 @@ function CheckoutContent() {
     <div className="min-h-screen flex flex-col bg-white">
       <Header />
 
-      <main className="flex-1 max-w-4xl mx-auto px-4 sm:px-6 py-12 w-full">
+      <main className="flex-1 max-w-4xl mx-auto px-3 sm:px-6 py-6 sm:py-12 w-full">
         {isCompleted ? (
           <Card elevation="surface-1" className="p-8 max-w-2xl mx-auto text-center space-y-5 border-[#D6E8C2] bg-[#F3F8EC]">
             <CheckCircle2 className="w-12 h-12 text-[#4E7525] mx-auto" />

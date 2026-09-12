@@ -28,6 +28,13 @@ export default function LoginPage() {
         setRequires2FA(true);
         return;
       }
+      try {
+        localStorage.setItem(
+          'oneallhost_user_session',
+          JSON.stringify({ username: username || 'client@oneallhost.com', loggedIn: true, loginTime: new Date().toISOString() })
+        );
+        window.dispatchEvent(new Event('auth-changed'));
+      } catch {}
       router.push('/dashboard');
     }, 700);
   };
@@ -49,7 +56,7 @@ export default function LoginPage() {
       </div>
 
       <main className="flex-1 py-12 px-4 sm:px-6">
-        {/* 3. Centered Login Card matching Namecheap Architecture */}
+        {/* 3. Centered Login Card */}
         <div className="max-w-xl mx-auto bg-[#FAFAF9] rounded-2xl shadow-xs border border-[#EBEBE7] p-8 sm:p-10 space-y-6">
           {/* Card Title & Sign Up Link */}
           <div className="flex items-center justify-between border-b border-[#EBEBE7] pb-4">

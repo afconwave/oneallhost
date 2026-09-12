@@ -248,7 +248,7 @@ domainRouter.post('/register', async (req: Request, res: Response) => {
     const newDomain = db.domainsRepo.create({
       userId,
       name: domainName.toLowerCase(),
-      registrar: 'Namecheap Live XML',
+      registrar: 'Oneallhost Enterprise Registry',
       expiresAt: expiryDate,
       status: 'active',
       whoisPrivacy: true,

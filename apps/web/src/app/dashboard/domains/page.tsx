@@ -324,7 +324,7 @@ export default function DomainsManagementPage() {
         </div>
       )}
 
-      {/* TAB 2: REGISTER NEW DOMAIN (Live Namecheap XML Search Bar) */}
+      {/* TAB 2: REGISTER NEW DOMAIN (Live Anycast Registry Engine) */}
       {activeTab === 'register' && (
         <div className="p-6 rounded-2xl bg-white border border-[#EBEBE7] shadow-xs space-y-6">
           <div className="text-center max-w-xl mx-auto space-y-2">

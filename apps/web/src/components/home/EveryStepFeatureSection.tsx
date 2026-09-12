@@ -10,21 +10,21 @@ const STEPS = [
     desc: 'Register a domain name and create your online identity. Use our advanced domain name generator to get your ideal choice right away. Already have a domain registered somewhere else? No problem — domain transfers are free and easy.',
     linkText: 'Discover all domain extensions',
     href: '/domains/domain-name-search',
-    image: '/images/namecheap/buy-a-domain.svg',
+    image: '/images/platform/buy-a-domain.svg',
   },
   {
     title: 'Find the right hosting for your domain',
     desc: 'Whether you want speed, simplicity, space, or super-power, we’ve got you covered. Choose from shared, VPS, dedicated, and Managed hosting for WordPress options. Or, try subdomain staging to get a personal site online.',
     linkText: 'Choose a hosting plan',
     href: '/hosting/shared',
-    image: '/images/namecheap/find-a-hosting.svg',
+    image: '/images/platform/find-a-hosting.svg',
   },
   {
     title: 'Add professional email',
     desc: 'Look pro and start sending emails from @yourwebsite.com. Get secure, reliable business email, complete with built-in calendar and AI email assistant, from just $11.88 a year.',
     linkText: 'Get business email',
     href: '/email',
-    image: '/images/namecheap/add-email.svg',
+    image: '/images/platform/add-email.svg',
   },
 ];
 

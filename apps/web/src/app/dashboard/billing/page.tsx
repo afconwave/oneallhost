@@ -7,19 +7,17 @@ import {
   Download,
   CreditCard,
   Receipt,
-  FileText,
   CheckCircle2,
   Plus,
   ShieldCheck,
   RefreshCw,
   AlertCircle,
-  Eye,
-  EyeOff,
   Wallet,
   Zap,
-  ArrowUpRight,
   X,
-  Smartphone,
+  Trash2,
+  Star,
+  Lock,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -37,16 +35,16 @@ interface PaymentRecord {
   timestamp: string;
 }
 
-interface VirtualCardRecord {
+interface PaymentMethodRecord {
   id: string;
-  cardNumber: string;
+  userId: string;
+  type: 'card' | 'momo';
   cardHolder: string;
-  expiry: string;
-  cvv: string;
-  balanceUsd: number;
-  balanceXaf: number;
   brand: string;
-  status: string;
+  last4: string;
+  expiry: string;
+  isDefault: boolean;
+  createdAt: string;
 }
 
 interface UserProfile {
@@ -61,11 +59,19 @@ interface UserProfile {
 export default function BillingManagementPage() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [invoices, setInvoices] = useState<PaymentRecord[]>([]);
-  const [virtualCards, setVirtualCards] = useState<VirtualCardRecord[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethodRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showCardDetails, setShowCardDetails] = useState<boolean>(false);
-  const [isCreatingCard, setIsCreatingCard] = useState<boolean>(false);
+
+  // Add Card Modal State
+  const [addCardModalOpen, setAddCardModalOpen] = useState<boolean>(false);
+  const [cardHolder, setCardHolder] = useState<string>('');
+  const [cardNumber, setCardNumber] = useState<string>('');
+  const [expiry, setExpiry] = useState<string>('');
+  const [cvv, setCvv] = useState<string>('');
+  const [isDefaultCard, setIsDefaultCard] = useState<boolean>(false);
+  const [isSavingCard, setIsSavingCard] = useState<boolean>(false);
+  const [cardSaveError, setCardSaveError] = useState<string | null>(null);
 
   // Top-Up Modal State
   const [topupModalOpen, setTopupModalOpen] = useState<boolean>(false);
@@ -82,30 +88,31 @@ export default function BillingManagementPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const [userRes, invRes, cardRes] = await Promise.all([
+      const [userRes, invRes, methodRes] = await Promise.all([
         fetch('/api/users/me'),
         fetch('/api/users/invoices'),
-        fetch('/api/payments/virtual-cards'),
+        fetch('/api/payments/methods'),
       ]);
 
-      if (!invRes.ok || !cardRes.ok) {
+      if (!invRes.ok || !methodRes.ok) {
         throw new Error('Failed to load billing ledgers from server');
       }
 
-      const [userData, invData, cardData] = await Promise.all([
+      const [userData, invData, methodData] = await Promise.all([
         userRes.ok ? userRes.json() : { user: null },
         invRes.json(),
-        cardRes.json(),
+        methodRes.json(),
       ]);
 
       if (userData && userData.user) {
         setUserProfile(userData.user);
+        if (!cardHolder) setCardHolder(userData.user.name || 'Account Owner');
       }
       if (invData && Array.isArray(invData.invoices)) {
         setInvoices(invData.invoices);
       }
-      if (cardData && Array.isArray(cardData.cards)) {
-        setVirtualCards(cardData.cards);
+      if (methodData && Array.isArray(methodData.methods)) {
+        setPaymentMethods(methodData.methods);
       }
     } catch (err: any) {
       console.error('[Billing Ledger Fetch Error]', err);
@@ -186,27 +193,84 @@ export default function BillingManagementPage() {
     }
   };
 
-  // Issue new virtual card via live API
-  const handleIssueVirtualCard = async () => {
-    setIsCreatingCard(true);
+  // Handle Save New Payment Card
+  const handleSaveCard = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!cardNumber || !cardHolder || !expiry) {
+      setCardSaveError('Please fill out all required card details');
+      return;
+    }
+
+    setIsSavingCard(true);
+    setCardSaveError(null);
     try {
-      const res = await fetch('/api/payments/virtual-card/issue', {
+      const res = await fetch('/api/payments/methods', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          cardHolder: userProfile?.name || 'ACCOUNT OWNER',
-          initialBalanceUsd: 50,
-          brand: 'Visa',
+          cardHolder,
+          cardNumber,
+          expiry,
+          isDefault: isDefaultCard || paymentMethods.length === 0,
         }),
       });
+
       if (res.ok) {
         const data = await res.json();
-        setVirtualCards((prev) => [...prev, data.card]);
+        if (data.method) {
+          if (data.method.isDefault) {
+            setPaymentMethods((prev) => [
+              data.method,
+              ...prev.map((m) => ({ ...m, isDefault: false })),
+            ]);
+          } else {
+            setPaymentMethods((prev) => [...prev, data.method]);
+          }
+        }
+        setCardNumber('');
+        setExpiry('');
+        setCvv('');
+        setAddCardModalOpen(false);
+      } else {
+        const errData = await res.json();
+        setCardSaveError(errData.error || 'Failed to save card');
+      }
+    } catch (err: any) {
+      console.error('[Save Card Error]', err);
+      setCardSaveError(err.message || 'Error communicating with card processor');
+    } finally {
+      setIsSavingCard(false);
+    }
+  };
+
+  // Handle Set Default Card
+  const handleSetDefaultCard = async (id: string) => {
+    try {
+      const res = await fetch(`/api/payments/methods/${id}/default`, {
+        method: 'PUT',
+      });
+      if (res.ok) {
+        setPaymentMethods((prev) =>
+          prev.map((m) => ({ ...m, isDefault: m.id === id }))
+        );
       }
     } catch (err) {
-      console.error('[Card Issue Error]', err);
-    } finally {
-      setIsCreatingCard(false);
+      console.error('[Set Default Error]', err);
+    }
+  };
+
+  // Handle Remove Card
+  const handleRemoveCard = async (id: string) => {
+    if (!confirm('Are you sure you want to remove this saved payment method?')) return;
+    try {
+      const res = await fetch(`/api/payments/methods/${id}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        setPaymentMethods((prev) => prev.filter((m) => m.id !== id));
+      }
+    } catch (err) {
+      console.error('[Remove Card Error]', err);
     }
   };
 
@@ -266,10 +330,10 @@ export default function BillingManagementPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#EBEBE7] pb-5">
         <div>
           <h1 className="text-2xl font-bold text-[#111111] font-display">
-            Billing, Wallet & Auto-Debit
+            Billing, Wallet &amp; Payment Methods
           </h1>
           <p className="text-xs text-[#6B6E68] mt-1">
-            Top up your account wallet, manage automated renewal debits, view tax receipts, and configure virtual cards.
+            Manage your account wallet balance, auto-renewal debits, saved credit/debit cards, and download official tax receipts.
           </p>
         </div>
 
@@ -320,11 +384,11 @@ export default function BillingManagementPage() {
                     <span className="text-xs font-bold uppercase tracking-wider text-blue-200">
                       Account Wallet Balance
                     </span>
-                    <div className="text-[11px] text-blue-100">Direct one-click payment & automated renews</div>
+                    <div className="text-[11px] text-blue-100">Direct one-click payment &amp; automated renews</div>
                   </div>
                 </div>
                 <Badge variant="success" className="bg-[#7CB342]/20 text-[#7CB342] border-[#7CB342]/30">
-                  Live & Active
+                  Live &amp; Active
                 </Badge>
               </div>
 
@@ -349,7 +413,7 @@ export default function BillingManagementPage() {
                   <span>Top-Up Balance</span>
                 </Button>
                 <span className="text-[11px] text-blue-200">
-                  Supports MTN, Orange, Wave, Visa, Mastercard & Tether USDT
+                  Supports MTN, Orange, Wave, Visa, Mastercard &amp; Tether USDT
                 </span>
               </div>
             </div>
@@ -362,7 +426,7 @@ export default function BillingManagementPage() {
                   <h3 className="text-sm font-bold text-[#111111]">Auto-Debit for Renewals</h3>
                 </div>
                 <p className="text-xs text-[#6B6E68] leading-relaxed">
-                  Automatically renew expiring domains and hosting services from your account wallet balance without manual intervention.
+                  Automatically renew expiring domains and hosting services from your account wallet balance or saved card without manual intervention.
                 </p>
               </div>
 
@@ -498,7 +562,7 @@ export default function BillingManagementPage() {
                       className="w-full bg-[#DE3723] hover:bg-[#C52D1C] text-white font-bold rounded-xl h-11"
                       isLoading={isTopupSubmitting}
                     >
-                      Confirm & Fund Wallet
+                      Confirm &amp; Fund Wallet
                     </Button>
                   </form>
                 )}
@@ -506,78 +570,226 @@ export default function BillingManagementPage() {
             </div>
           )}
 
-          {/* Virtual Cards Section */}
+          {/* SAVED PAYMENT METHODS & CARDS SECTION */}
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold text-[#111111] flex items-center gap-2">
-                <CreditCard className="w-4 h-4 text-[#0D3B85]" />
-                <span>Virtual Debit Cards</span>
-              </h2>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-bold text-[#111111] flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-[#0D3B85]" />
+                  <span>Saved Payment Methods &amp; Cards</span>
+                </h2>
+                <p className="text-[11px] text-[#6B6E68] mt-0.5">
+                  Save credit or debit cards to enable seamless domain checkout and automated renewals.
+                </p>
+              </div>
+
               <Button
-                variant="outline"
+                variant="primary"
                 size="sm"
-                onClick={handleIssueVirtualCard}
-                isLoading={isCreatingCard}
-                className="text-xs font-bold gap-1 text-[#0D3B85] border-[#DCDDD8]"
+                onClick={() => {
+                  setCardSaveError(null);
+                  setAddCardModalOpen(true);
+                }}
+                className="text-xs font-bold gap-1.5 bg-[#0D3B85] hover:bg-[#1B6FC9] text-white rounded-xl shadow-xs"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>Issue New Card ($50)</span>
+                <span>Add Payment Card</span>
               </Button>
             </div>
 
-            {virtualCards.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                {virtualCards.map((card) => (
-                  <div
-                    key={card.id}
-                    className="p-6 rounded-2xl bg-gradient-to-br from-[#091F44] to-[#0D3B85] text-white shadow-md flex flex-col justify-between h-48 relative overflow-hidden"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold tracking-wider text-[#7CB342]">ONEALLHOST PREPAID</span>
-                      <span className="text-xs font-bold font-mono">{card.brand}</span>
-                    </div>
+            {/* Saved Cards Grid */}
+            {paymentMethods.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {paymentMethods.map((pm) => {
+                  const isVisa = pm.brand.toLowerCase().includes('visa');
+                  const isMastercard = pm.brand.toLowerCase().includes('mastercard');
 
-                    <div className="space-y-1">
-                      <div className="font-mono text-base font-bold tracking-widest text-white flex items-center gap-2">
-                        <span>
-                          {showCardDetails ? card.cardNumber : `•••• •••• •••• ${card.cardNumber.slice(-4)}`}
+                  return (
+                    <div
+                      key={pm.id}
+                      className={`p-5 rounded-2xl bg-white border transition-all flex flex-col justify-between space-y-4 shadow-xs ${
+                        pm.isDefault ? 'border-[#0D3B85] ring-2 ring-[#0D3B85]/10' : 'border-[#EBEBE7]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-lg bg-[#F0F3F9] flex items-center justify-center font-bold text-xs text-[#0D3B85]">
+                            {isVisa ? 'VISA' : isMastercard ? 'MC' : 'CARD'}
+                          </div>
+                          <div>
+                            <div className="text-xs font-bold text-[#111111]">{pm.brand}</div>
+                            <div className="text-[10px] text-[#6B6E68]">Exp: {pm.expiry}</div>
+                          </div>
+                        </div>
+
+                        {pm.isDefault ? (
+                          <Badge variant="info" className="bg-[#0D3B85]/10 text-[#0D3B85] border-0 text-[10px] font-bold">
+                            Default
+                          </Badge>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleSetDefaultCard(pm.id)}
+                            className="text-[11px] font-semibold text-[#6B6E68] hover:text-[#0D3B85] hover:underline"
+                          >
+                            Set Default
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="font-mono text-sm font-bold text-[#111111] tracking-widest">
+                        •••• •••• •••• {pm.last4}
+                      </div>
+
+                      <div className="pt-2 border-t border-[#F0F0EE] flex items-center justify-between text-xs">
+                        <span className="text-[11px] text-[#6B6E68] font-medium truncate max-w-[150px]">
+                          {pm.cardHolder}
                         </span>
+
                         <button
                           type="button"
-                          onClick={() => setShowCardDetails(!showCardDetails)}
-                          className="text-blue-200 hover:text-white"
+                          onClick={() => handleRemoveCard(pm.id)}
+                          title="Remove card"
+                          className="text-gray-400 hover:text-red-600 transition-colors p-1"
                         >
-                          {showCardDetails ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
-                      <div className="text-[11px] text-blue-200 flex gap-4">
-                        <span>EXP: {card.expiry}</span>
-                        <span>CVV: {showCardDetails ? card.cvv : '•••'}</span>
-                      </div>
                     </div>
-
-                    <div className="flex items-center justify-between border-t border-white/10 pt-2 text-xs">
-                      <span className="font-semibold text-white">{card.cardHolder}</span>
-                      <span className="font-bold text-[#7CB342]">${card.balanceUsd.toFixed(2)} USD</span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="p-8 rounded-2xl bg-white border border-[#EBEBE7] text-center space-y-2">
-                <CreditCard className="w-7 h-7 text-[#6B6E68] mx-auto opacity-40" />
-                <div className="text-xs font-semibold text-[#111111]">No active virtual cards</div>
-                <p className="text-[11px] text-[#6B6E68]">Issue a virtual USD debit card funded via Mobile Money.</p>
+                <CreditCard className="w-8 h-8 text-[#6B6E68] mx-auto opacity-30" />
+                <div className="text-xs font-semibold text-[#111111]">No saved payment methods</div>
+                <p className="text-[11px] text-[#6B6E68] max-w-sm mx-auto">
+                  Add a Visa, Mastercard, or debit card to simplify checkout and avoid domain expiration.
+                </p>
               </div>
             )}
           </div>
+
+          {/* ADD PAYMENT CARD MODAL */}
+          {addCardModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+              <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-[#EBEBE7] space-y-5 relative animate-in fade-in zoom-in-95 duration-150">
+                <button
+                  type="button"
+                  onClick={() => setAddCardModalOpen(false)}
+                  className="absolute top-6 right-6 text-[#6B6E68] hover:text-[#111111]"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                <div>
+                  <h2 className="text-lg font-bold text-[#111111] flex items-center gap-2">
+                    <CreditCard className="w-5 h-5 text-[#0D3B85]" />
+                    <span>Add Payment Card</span>
+                  </h2>
+                  <p className="text-xs text-[#6B6E68] mt-1">
+                    Card details are securely tokenized for 256-bit encrypted transactions.
+                  </p>
+                </div>
+
+                {cardSaveError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-medium">
+                    {cardSaveError}
+                  </div>
+                )}
+
+                <form onSubmit={handleSaveCard} className="space-y-4">
+                  <div>
+                    <label className="text-xs font-bold text-[#111111] block mb-1">
+                      Cardholder Name
+                    </label>
+                    <Input
+                      type="text"
+                      required
+                      placeholder="e.g. Jean Dupont"
+                      value={cardHolder}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCardHolder(e.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-[#111111] block mb-1">
+                      Card Number
+                    </label>
+                    <Input
+                      type="text"
+                      required
+                      maxLength={19}
+                      placeholder="4000 1234 5678 9010"
+                      value={cardNumber}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCardNumber(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-bold text-[#111111] block mb-1">
+                        Expiry Date (MM/YY)
+                      </label>
+                      <Input
+                        type="text"
+                        required
+                        maxLength={5}
+                        placeholder="12/28"
+                        value={expiry}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setExpiry(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-[#111111] block mb-1">
+                        CVV / CVC
+                      </label>
+                      <Input
+                        type="password"
+                        required
+                        maxLength={4}
+                        placeholder="•••"
+                        value={cvv}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCvv(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-1">
+                    <input
+                      type="checkbox"
+                      id="defaultCardCheck"
+                      checked={isDefaultCard}
+                      onChange={(e) => setIsDefaultCard(e.target.checked)}
+                      className="w-4 h-4 rounded text-[#0D3B85] accent-[#0D3B85]"
+                    />
+                    <label htmlFor="defaultCardCheck" className="text-xs text-[#6B6E68] cursor-pointer">
+                      Set as primary payment method for renewals
+                    </label>
+                  </div>
+
+                  <div className="pt-2">
+                    <Button
+                      variant="primary"
+                      size="lg"
+                      className="w-full bg-[#0D3B85] hover:bg-[#1B6FC9] text-white font-bold rounded-xl h-11"
+                      isLoading={isSavingCard}
+                    >
+                      <Lock className="w-3.5 h-3.5 mr-1" />
+                      <span>Save Card Securely</span>
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
 
           {/* Invoices Table */}
           <div className="bg-white rounded-2xl border border-[#EBEBE7] overflow-hidden shadow-xs">
             <div className="p-5 border-b border-[#EBEBE7] flex items-center justify-between">
               <h2 className="text-sm font-bold text-[#111111] flex items-center gap-2">
                 <Receipt className="w-4 h-4 text-[#0D3B85]" />
-                <span>Invoice & Payment History</span>
+                <span>Invoice &amp; Payment History</span>
               </h2>
             </div>
 

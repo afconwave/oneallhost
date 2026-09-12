@@ -118,13 +118,13 @@ export const DomainSearchBar: React.FC = () => {
 
       {/* Popular TLD Selectors */}
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
-        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-          <span className="text-white/80 font-medium text-[11px] mr-0.5">Popular:</span>
+        <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 max-w-full scrollbar-none">
+          <span className="text-white/80 font-medium text-[11px] mr-0.5 shrink-0">Popular:</span>
           
           <button
             type="button"
             onClick={() => handleQuickTld('com')}
-            className="min-h-[30px] px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-all flex items-center gap-1.5 text-[11px] sm:text-xs cursor-pointer"
+            className="min-h-[28px] sm:min-h-[30px] px-2 sm:px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-all flex items-center gap-1 text-[11px] sm:text-xs cursor-pointer shrink-0"
           >
             <span className="font-bold">.com</span>
             <span className="text-emerald-300 font-bold">{formatLocalPrice(13.99, geoConfig.currencyCode)}</span>
@@ -133,7 +133,7 @@ export const DomainSearchBar: React.FC = () => {
           <button
             type="button"
             onClick={() => handleQuickTld('cm')}
-            className="min-h-[30px] px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-all flex items-center gap-1.5 text-[11px] sm:text-xs cursor-pointer"
+            className="min-h-[28px] sm:min-h-[30px] px-2 sm:px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-all flex items-center gap-1 text-[11px] sm:text-xs cursor-pointer shrink-0"
           >
             <span className="font-bold">.cm</span>
             <span className="text-emerald-300 font-bold">{formatLocalPrice(37.99, geoConfig.currencyCode)}</span>
@@ -142,7 +142,7 @@ export const DomainSearchBar: React.FC = () => {
           <button
             type="button"
             onClick={() => handleQuickTld('africa')}
-            className="min-h-[30px] px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-all flex items-center gap-1.5 text-[11px] sm:text-xs cursor-pointer"
+            className="min-h-[28px] sm:min-h-[30px] px-2 sm:px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-all flex items-center gap-1 text-[11px] sm:text-xs cursor-pointer shrink-0"
           >
             <span className="font-bold">.africa</span>
             <span className="text-emerald-300 font-bold">{formatLocalPrice(19.99, geoConfig.currencyCode)}</span>
@@ -151,7 +151,7 @@ export const DomainSearchBar: React.FC = () => {
           <button
             type="button"
             onClick={() => handleQuickTld('net')}
-            className="min-h-[30px] px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-all flex items-center gap-1.5 text-[11px] sm:text-xs cursor-pointer"
+            className="min-h-[28px] sm:min-h-[30px] px-2 sm:px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-all flex items-center gap-1 text-[11px] sm:text-xs cursor-pointer shrink-0"
           >
             <span className="font-bold">.net</span>
             <span className="text-white/80">{formatLocalPrice(15.99, geoConfig.currencyCode)}</span>
@@ -160,7 +160,7 @@ export const DomainSearchBar: React.FC = () => {
           <button
             type="button"
             onClick={() => handleQuickTld('org')}
-            className="min-h-[30px] px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-all flex items-center gap-1.5 text-[11px] sm:text-xs cursor-pointer"
+            className="min-h-[28px] sm:min-h-[30px] px-2 sm:px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-all flex items-center gap-1 text-[11px] sm:text-xs cursor-pointer shrink-0"
           >
             <span className="font-bold">.org</span>
             <span className="text-white/80">{formatLocalPrice(14.99, geoConfig.currencyCode)}</span>
@@ -169,7 +169,7 @@ export const DomainSearchBar: React.FC = () => {
           <button
             type="button"
             onClick={() => handleQuickTld('io')}
-            className="min-h-[30px] px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-all flex items-center gap-1.5 text-[11px] sm:text-xs cursor-pointer"
+            className="min-h-[28px] sm:min-h-[30px] px-2 sm:px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-all flex items-center gap-1 text-[11px] sm:text-xs cursor-pointer shrink-0"
           >
             <span className="font-bold">.io</span>
             <span className="text-white/80">{formatLocalPrice(39.99, geoConfig.currencyCode)}</span>
@@ -177,9 +177,9 @@ export const DomainSearchBar: React.FC = () => {
         </div>
 
         {/* Currency Tag */}
-        <div className="flex items-center gap-1 px-2.5 py-1 bg-white/10 text-white rounded-lg border border-white/20 text-[11px] font-bold">
+        <div className="flex items-center gap-1 px-2 py-0.5 sm:px-2.5 sm:py-1 bg-white/10 text-white rounded-lg border border-white/20 text-[10px] sm:text-[11px] font-bold shrink-0">
           <span>{geoConfig.currencyCode}</span>
-          <span className="text-white/60 text-[10px]">({geoConfig.countryCode})</span>
+          <span className="text-white/60 text-[9px] sm:text-[10px]">({geoConfig.countryCode})</span>
         </div>
       </div>
 
@@ -192,12 +192,12 @@ export const DomainSearchBar: React.FC = () => {
 
       {/* Clean, Dynamic Results List Across Multiple Extensions */}
       {results.length > 0 && (
-        <div className="mt-6 space-y-2">
+        <div className="mt-5 sm:mt-6 space-y-2">
           <div className="flex items-center justify-between px-1 text-xs">
-            <span className="font-bold text-white">
-              Domain extensions for &ldquo;{searchedDomain}&rdquo;
+            <span className="font-bold text-white text-[11px] sm:text-xs truncate">
+              Extensions for &ldquo;{searchedDomain}&rdquo;
             </span>
-            <span className="text-white/70">{results.length} extensions checked</span>
+            <span className="text-white/70 text-[10px] sm:text-xs shrink-0 ml-2">{results.length} checked</span>
           </div>
 
           <div className="space-y-2">
@@ -206,10 +206,10 @@ export const DomainSearchBar: React.FC = () => {
               return (
                 <div
                   key={res.domainName}
-                  className="flex items-center justify-between gap-4 p-3.5 sm:p-4 rounded-xl bg-white border border-[#EBEBE7] shadow-md text-[#111111] hover:border-[#0D3B85]/40 transition-colors"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 p-3 sm:p-4 rounded-xl bg-white border border-[#EBEBE7] shadow-md text-[#111111] hover:border-[#0D3B85]/40 transition-colors"
                 >
                   {/* Left: Domain Name & Status */}
-                  <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="flex items-center justify-between sm:justify-start gap-2 min-w-0">
                     <span className="text-sm sm:text-base font-bold text-[#111111] truncate">
                       {res.domainName}
                     </span>
@@ -221,8 +221,8 @@ export const DomainSearchBar: React.FC = () => {
                   </div>
 
                   {/* Right: Price & Button */}
-                  <div className="flex items-center gap-3 shrink-0">
-                    <div className="text-right">
+                  <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-1 sm:pt-0 border-t border-gray-100 sm:border-t-0">
+                    <div className="text-left sm:text-right">
                       <div className="text-sm sm:text-base font-bold text-[#0D3B85]">
                         {formattedPrice}
                       </div>
@@ -234,7 +234,7 @@ export const DomainSearchBar: React.FC = () => {
                         <Button
                           variant="primary"
                           size="sm"
-                          className="bg-[#DE3723] hover:bg-[#C52D1C] px-4 py-2 font-bold text-xs rounded-xl h-9 whitespace-nowrap cursor-pointer"
+                          className="bg-[#DE3723] hover:bg-[#C52D1C] px-3.5 sm:px-4 py-1.5 sm:py-2 font-bold text-xs rounded-xl h-8 sm:h-9 whitespace-nowrap cursor-pointer"
                         >
                           Register
                         </Button>
@@ -243,7 +243,7 @@ export const DomainSearchBar: React.FC = () => {
                       <button
                         type="button"
                         disabled
-                        className="px-3.5 py-1.5 bg-gray-100 text-gray-400 font-bold text-xs rounded-xl cursor-not-allowed border border-gray-200 h-9"
+                        className="px-3 py-1 bg-gray-100 text-gray-400 font-bold text-xs rounded-xl cursor-not-allowed border border-gray-200 h-8 sm:h-9"
                       >
                         Taken
                       </button>

@@ -42,7 +42,7 @@ export const NAV_ITEMS: NavGroup[] = [
       { label: 'Reseller Hosting', href: '/hosting/reseller', desc: 'Start your own hosting business with WHM/cPanel', icon: 'fa-solid fa-users-gear' },
       { label: 'VPS Hosting', href: '/hosting/vps', desc: 'Full root access VPS with dedicated KVM resources', icon: 'fa-solid fa-microchip' },
       { label: 'Dedicated Servers', href: '/hosting/dedicated-servers', desc: 'Bare-metal enterprise servers with unmetered bandwidth', icon: 'fa-solid fa-hard-drive' },
-      { label: 'Migrate to Oneallhost', href: '/hosting/hosting-migrate-to-namecheap', desc: 'Free zero-downtime hosting migration service', icon: 'fa-solid fa-truck-ramp-box', badge: 'FREE' },
+      { label: 'Migrate to Oneallhost', href: '/hosting/migrate', desc: 'Free zero-downtime hosting migration service', icon: 'fa-solid fa-truck-ramp-box', badge: 'FREE' },
     ],
   },
   {
@@ -100,7 +100,7 @@ export const NAV_ITEMS: NavGroup[] = [
     badgeColor: 'bg-[#0D3B85]',
     items: [
       { label: 'Transfer Domains', href: '/domains/transfer', desc: 'Transfer domain with +1 YR free extension', icon: 'fa-solid fa-arrow-right-arrow-left', badge: '+1 YR FREE' },
-      { label: 'Migrate Hosting', href: '/hosting/hosting-migrate-to-namecheap', desc: 'We move your cPanel files, databases, and mail free', icon: 'fa-solid fa-truck-arrow-right', badge: 'FREE' },
+      { label: 'Migrate Hosting', href: '/hosting/migrate', desc: 'We move your cPanel files, databases, and mail free', icon: 'fa-solid fa-truck-arrow-right', badge: 'FREE' },
       { label: 'Migrate WordPress', href: '/wordpress/migrate', desc: 'Zero downtime transfer for WordPress websites', icon: 'fa-brands fa-wordpress' },
     ],
   },

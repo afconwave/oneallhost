@@ -59,7 +59,21 @@ userRouter.post('/login', (req: Request, res: Response) => {
 
 // 3. Get Current User Profile
 userRouter.get('/me', (req: Request, res: Response) => {
-  const user = db.usersRepo.findById('usr-1') || db.usersRepo.list()[0];
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ success: false, error: 'Unauthorized: No session token provided', user: null });
+  }
+
+  const token = authHeader.replace('Bearer ', '').trim();
+  // Extract userId from token pattern: onh_jwt_<userId>_<timestamp>
+  const match = token.match(/^onh_jwt_(usr-[a-zA-Z0-9_-]+)/);
+  const userId = match ? match[1] : null;
+
+  const user = userId ? db.usersRepo.findById(userId) : null;
+  if (!user) {
+    return res.status(401).json({ success: false, error: 'Invalid or expired session', user: null });
+  }
+
   return res.json({ success: true, user });
 });
 

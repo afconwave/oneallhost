@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 200" fill="none">
+  <rect width="280" height="200" rx="16" fill="#F0F5FF"/>
+  <!-- Domain Card Graphic -->
+  <rect x="40" y="45" width="200" height="110" rx="12" fill="#FFFFFF" shadow="none"/>
+  <rect x="55" y="65" width="120" height="12" rx="6" fill="#0D3B85"/>
+  <rect x="55" y="88" width="80" height="8" rx="4" fill="#7CB342"/>
+  <circle cx="205" cy="71" r="16" fill="#1B6FC9" fill-opacity="0.15"/>
+  <path d="M200 71L203 74L210 67" stroke="#1B6FC9" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Search Magnifier Icon -->
+  <circle cx="190" cy="120" r="18" fill="#0D3B85"/>
+  <path d="M203 133L215 145" stroke="#0D3B85" stroke-width="4" stroke-linecap="round"/>
+  <path d="M184 120A6 6 0 1 1 196 120A6 6 0 1 1 184 120" fill="none" stroke="#FFFFFF" stroke-width="2"/>
+</svg>

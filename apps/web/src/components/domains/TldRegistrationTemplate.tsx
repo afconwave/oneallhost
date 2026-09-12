@@ -565,7 +565,7 @@ export const TldRegistrationTemplate: React.FC<{ tldKey: string; defaultCategory
         </div>
       </div>
 
-      {/* 1. Dark Navy Hero with Namecheap Mascot / Tech Theme */}
+      {/* 1. Dark Navy Hero with Tech Theme */}
       <section className="bg-[#091F44] text-white py-16 px-4 sm:px-8 relative overflow-hidden">
         <div className="max-w-5xl mx-auto text-center space-y-6 relative z-10">
           <h1 className="text-3xl sm:text-5xl font-extrabold text-white leading-tight">
@@ -575,7 +575,7 @@ export const TldRegistrationTemplate: React.FC<{ tldKey: string; defaultCategory
             {config.tagline}
           </p>
 
-          {/* Domain Search Strip matching Namecheap Bar */}
+          {/* Domain Search Strip */}
           <form onSubmit={handleSearch} className="max-w-2xl mx-auto pt-4">
             <div className="flex flex-col sm:flex-row items-center gap-2 bg-white p-1.5 sm:p-2 rounded-2xl shadow-2xl">
               <div className="flex-1 flex items-center gap-2 px-3 sm:px-4 w-full">

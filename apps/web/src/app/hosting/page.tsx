@@ -110,7 +110,7 @@ export default function HostingPage() {
       <Header />
 
       <main className="flex-1">
-        {/* 1. Hero Section matching Namecheap Hosting Screenshot */}
+        {/* 1. Hero Section - Cloud Web Hosting */}
         <section className="bg-[#091F44] text-white py-20 px-4 sm:px-6 relative overflow-hidden">
           <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div className="space-y-6">
@@ -153,7 +153,7 @@ export default function HostingPage() {
             {/* Right Side Illustration */}
             <div className="flex justify-center lg:justify-end">
               <img
-                src="/images/namecheap/hosting-illustration.svg"
+                src="/images/platform/hosting-illustration.svg"
                 alt="Cloud Hosting Servers"
                 className="w-full max-w-md h-auto object-contain"
               />

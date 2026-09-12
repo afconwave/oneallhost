@@ -69,11 +69,24 @@ export interface AuditLogRecord {
   metadata?: Record<string, any>;
 }
 
+export interface PaymentMethodRecord {
+  id: string;
+  userId: string;
+  type: 'card' | 'momo';
+  cardHolder: string;
+  brand: string; // 'Visa' | 'Mastercard' | 'Amex' | 'MTN' | 'Orange'
+  last4: string;
+  expiry: string; // 'MM/YY'
+  isDefault: boolean;
+  createdAt: string;
+}
+
 class DatabaseEngine {
   private users: Map<string, UserRecord> = new Map();
   private domains: Map<string, DomainRecord> = new Map();
   private rentals: Map<string, RentalRecord> = new Map();
   private payments: Map<string, PaymentRecord> = new Map();
+  private paymentMethods: Map<string, PaymentMethodRecord> = new Map();
   private auditLogs: AuditLogRecord[] = [];
 
   constructor() {
@@ -93,6 +106,32 @@ class DatabaseEngine {
       createdAt: new Date().toISOString(),
     };
     this.users.set(initialUser.id, initialUser);
+
+    // Initial saved payment methods
+    const defaultCard: PaymentMethodRecord = {
+      id: 'pm-1',
+      userId: 'usr-1',
+      type: 'card',
+      cardHolder: 'ACCOUNT OWNER',
+      brand: 'Visa',
+      last4: '4242',
+      expiry: '12/28',
+      isDefault: true,
+      createdAt: new Date().toISOString(),
+    };
+    const backupCard: PaymentMethodRecord = {
+      id: 'pm-2',
+      userId: 'usr-1',
+      type: 'card',
+      cardHolder: 'ACCOUNT OWNER',
+      brand: 'Mastercard',
+      last4: '8890',
+      expiry: '09/27',
+      isDefault: false,
+      createdAt: new Date().toISOString(),
+    };
+    this.paymentMethods.set(defaultCard.id, defaultCard);
+    this.paymentMethods.set(backupCard.id, backupCard);
 
     this.auditLogs.push({
       id: `log-${Date.now()}-init`,
@@ -233,6 +272,54 @@ class DatabaseEngine {
     list: (userId?: string): PaymentRecord[] => {
       const all = Array.from(this.payments.values());
       return userId ? all.filter((p) => p.userId === userId) : all;
+    },
+  };
+
+  // --- Saved Payment Methods / Cards ---
+  public paymentMethodsRepo = {
+    create: (method: Omit<PaymentMethodRecord, 'id' | 'createdAt'>): PaymentMethodRecord => {
+      const id = `pm-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+      if (method.isDefault) {
+        // Unset any existing default for this user
+        for (const existing of this.paymentMethods.values()) {
+          if (existing.userId === method.userId) {
+            existing.isDefault = false;
+          }
+        }
+      }
+      const record: PaymentMethodRecord = {
+        ...method,
+        id,
+        createdAt: new Date().toISOString(),
+      };
+      this.paymentMethods.set(id, record);
+      this.auditLogsRepo.log('PAYMENT_METHOD_ADDED', method.userId, `${method.brand} ending in ${method.last4}`);
+      return record;
+    },
+    list: (userId?: string): PaymentMethodRecord[] => {
+      const all = Array.from(this.paymentMethods.values());
+      return userId ? all.filter((m) => m.userId === userId) : all;
+    },
+    delete: (id: string, userId?: string): boolean => {
+      const existing = this.paymentMethods.get(id);
+      if (!existing) return false;
+      if (userId && existing.userId !== userId) return false;
+      this.paymentMethods.delete(id);
+      this.auditLogsRepo.log('PAYMENT_METHOD_REMOVED', existing.userId, `${existing.brand} ending in ${existing.last4}`);
+      return true;
+    },
+    setDefault: (id: string, userId?: string): PaymentMethodRecord | undefined => {
+      const target = this.paymentMethods.get(id);
+      if (!target) return undefined;
+      if (userId && target.userId !== userId) return undefined;
+
+      for (const existing of this.paymentMethods.values()) {
+        if (!userId || existing.userId === userId) {
+          existing.isDefault = existing.id === id;
+        }
+      }
+      this.auditLogsRepo.log('PAYMENT_METHOD_SET_DEFAULT', target.userId, `${target.brand} ending in ${target.last4}`);
+      return target;
     },
   };
 

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 200" fill="none">
+  <rect width="280" height="200" rx="16" fill="#FAF5FF"/>
+  <!-- Security Shield & WHOIS Lock Graphic -->
+  <path d="M140 35L200 60V110C200 145 140 170 140 170C140 170 80 145 80 110V60L140 35Z" fill="#0D3B85"/>
+  <path d="M140 45L190 67V108C190 138 140 158 140 158C140 158 90 138 90 108V67L140 45Z" fill="#1B6FC9"/>
+  <!-- Lock Symbol -->
+  <rect x="125" y="100" width="30" height="25" rx="5" fill="#7CB342"/>
+  <path d="M132 100V92C132 87.5 135.5 84 140 84C144.5 84 148 87.5 148 92V100" stroke="#7CB342" stroke-width="3" fill="none"/>
+</svg>

@@ -53,7 +53,7 @@ export default function HomePage() {
         <BottomCtaSection />
       </main>
 
-      {/* 12. Namecheap-Style Multi-Column Mega-Footer */}
+      {/* 12. Multi-Column Mega-Footer */}
       <Footer />
     </div>
   );

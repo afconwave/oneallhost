@@ -24,6 +24,13 @@ export default function RegisterPage() {
 
     setTimeout(() => {
       setIsLoading(false);
+      try {
+        localStorage.setItem(
+          'oneallhost_user_session',
+          JSON.stringify({ username: username || 'client@oneallhost.com', loggedIn: true, loginTime: new Date().toISOString() })
+        );
+        window.dispatchEvent(new Event('auth-changed'));
+      } catch {}
       router.push('/dashboard');
     }, 800);
   };
@@ -45,7 +52,7 @@ export default function RegisterPage() {
       </div>
 
       <main className="flex-1 py-12 px-4 sm:px-6">
-        {/* 3. Centered Registration Card matching Namecheap Signup Screenshot */}
+        {/* 3. Centered Registration Card */}
         <div className="max-w-xl mx-auto bg-[#FAFAF9] rounded-2xl shadow-xs p-8 sm:p-10 space-y-6">
           {/* Card Title & Sign In Link */}
           <div className="flex items-center justify-between border-b border-[#EBEBE7] pb-4">

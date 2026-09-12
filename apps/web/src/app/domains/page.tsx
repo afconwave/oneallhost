@@ -61,7 +61,7 @@ export default function DomainsPage() {
       <Header />
 
       <main className="flex-1">
-        {/* 1. Hero Section matching Namecheap Domains Screenshot */}
+        {/* 1. Hero Section - Domains Search & Registration */}
         <section className="bg-[#091F44] text-white pt-20 pb-28 px-4 sm:px-6 relative overflow-hidden">
           <div className="max-w-5xl mx-auto text-center space-y-8 relative z-10">
             <h1 className="text-4xl sm:text-6xl font-extrabold font-display leading-tight text-white">

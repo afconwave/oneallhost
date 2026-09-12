@@ -45,18 +45,17 @@ export const HeroSection: React.FC = () => {
         initial={shouldReduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: 'easeOut' }}
-        className="relative z-10 w-full max-w-5xl mx-auto px-4 sm:px-6 py-16 sm:py-24 flex flex-col items-center text-center space-y-6 sm:space-y-8"
+        className="relative z-10 w-full max-w-5xl mx-auto px-3 sm:px-6 py-10 sm:py-24 flex flex-col items-center text-center space-y-5 sm:space-y-8"
       >
-        <div className="space-y-3 sm:space-y-4 max-w-3xl">
-          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight font-display text-white leading-[1.15] neon-hero-title">
+        <div className="space-y-2.5 sm:space-y-4 max-w-3xl">
+          <h1 className="text-2xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight font-display text-white leading-[1.15] neon-hero-title">
             All-in-one domain names &amp; cloud hosting
           </h1>
 
-          <p className="text-sm sm:text-base max-w-xl mx-auto font-medium leading-relaxed text-blue-100/90 drop-shadow-xs">
+          <p className="text-xs sm:text-base max-w-xl mx-auto font-medium leading-relaxed text-blue-100/90 drop-shadow-xs px-2">
             Register ICANN domains with sub-3-minute Anycast DNS and settle instantly with native Mobile Money.
           </p>
         </div>
-
 
         {/* Live Domain Search Bar */}
         <div className="w-full max-w-3xl">
@@ -64,17 +63,17 @@ export const HeroSection: React.FC = () => {
         </div>
 
         {/* Action Controls - Fully Responsive for Mobile & Desktop */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-2.5 sm:gap-3 w-full sm:w-auto pt-2 max-w-md sm:max-w-none mx-auto">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-2 sm:gap-3 w-full sm:w-auto pt-1 sm:pt-2 max-w-xs sm:max-w-none mx-auto">
           <a
             href="#domains"
-            className="inline-flex items-center justify-center font-bold text-xs sm:text-sm text-white rounded-xl h-11 sm:h-12 px-5 sm:px-6 transition-all shadow-sm bg-[#0D3B85] hover:bg-[#1B6FC9] w-full sm:w-auto text-center"
+            className="inline-flex items-center justify-center font-bold text-xs sm:text-sm text-white rounded-xl h-10 sm:h-12 px-4 sm:px-6 transition-all shadow-sm bg-[#0D3B85] hover:bg-[#1B6FC9] w-full sm:w-auto text-center"
           >
             Explore Domain Extensions
           </a>
 
           <Link
             href="/rentals"
-            className="inline-flex items-center justify-center font-bold text-xs sm:text-sm text-white rounded-xl h-11 sm:h-12 px-5 sm:px-6 bg-white/10 hover:bg-white/20 border border-white/25 backdrop-blur-md transition-all shadow-sm w-full sm:w-auto text-center"
+            className="inline-flex items-center justify-center font-bold text-xs sm:text-sm text-white rounded-xl h-10 sm:h-12 px-4 sm:px-6 bg-white/10 hover:bg-white/20 border border-white/25 backdrop-blur-md transition-all shadow-sm w-full sm:w-auto text-center"
           >
             Staging Subdomains (100% Rebate)
           </Link>

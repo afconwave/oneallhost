@@ -266,7 +266,7 @@ export class NamecheapService {
       return {
         success: false,
         refId,
-        error: err.message || 'Unable to connect to Namecheap registrar server',
+        error: err.message || 'Unable to connect to domain registry server',
       };
     }
   }

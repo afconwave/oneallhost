@@ -299,9 +299,24 @@ export async function fetchLiveIpGeo(): Promise<GeoCurrencyConfig | null> {
       return GEO_CURRENCY_REGISTRY[cached];
     }
 
-    // Try fast reliable IP geolocation services
+    // 1. Query accelerated internal Edge GeoIP endpoint
+    try {
+      const internalRes = await fetch('/api/tools/geoip', { cache: 'force-cache' });
+      if (internalRes.ok) {
+        const data = await internalRes.json();
+        const country = data?.countryCode?.toUpperCase() || data?.country?.toUpperCase();
+        if (country && GEO_CURRENCY_REGISTRY[country]) {
+          sessionStorage.setItem('onh_ip_country', country);
+          return GEO_CURRENCY_REGISTRY[country];
+        }
+      }
+    } catch {
+      // Fall through to fallback
+    }
+
+    // 2. Fallback to country detection service if running detached from API gateway
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 2500);
+    const timeout = setTimeout(() => controller.abort(), 2000);
 
     const res = await fetch('https://api.country.is/', {
       signal: controller.signal,

@@ -1,16 +1,16 @@
 import { Router, Request, Response } from 'express';
+import { db } from '@oneallhost/db';
 
 export const rentalRouter = Router();
-
-const rentalsStore: Record<string, any> = {};
 
 // 0. List all available / active subdomain leases
 rentalRouter.get('/', async (req: Request, res: Response) => {
   try {
-    const list = Object.values(rentalsStore);
+    const list = await db.rentalsRepo.list();
     return res.json({
       success: true,
       data: list,
+      rentals: list,
       total: list.length,
     });
   } catch (error: any) {
@@ -21,7 +21,7 @@ rentalRouter.get('/', async (req: Request, res: Response) => {
 // 1. Create short-term subdomain lease (24h/72h/7d/30d) (§4 / §8b)
 rentalRouter.post('/create', async (req: Request, res: Response) => {
   try {
-    const { subdomain, baseDomain = 'oah.link', renterId = 'anon', durationType = 'day', durationValue = 7, targetUrl } = req.body;
+    const { subdomain, baseDomain = 'oah.link', renterId = 'usr-1', durationType = 'day', durationValue = 7, targetUrl } = req.body;
     
     if (!subdomain) {
       return res.status(400).json({ error: 'Subdomain name is required' });
@@ -38,28 +38,24 @@ rentalRouter.post('/create', async (req: Request, res: Response) => {
     else if (durationValue === 30) priceUsd = 24.99;
     else priceUsd = Number((durationValue * 1.15).toFixed(2));
 
-    const priceXaf = Math.round(priceUsd * 615.5);
     endTime.setDate(endTime.getDate() + Number(durationValue));
 
-    const newRental = {
-      id: `rent-${Date.now()}`,
-      subdomain,
-      fullDomain,
-      renterId,
+    const newRental = await db.rentalsRepo.create({
+      userId: renterId,
+      subdomain: fullDomain,
+      targetDomain: fullDomain,
+      clientName: 'Account Owner',
+      durationHours: Number(durationValue) * 24,
       durationType,
-      durationValue,
-      pricePaidUsd: priceUsd,
-      pricePaidXaf: priceXaf,
-      startTime: startTime.toISOString(),
-      endTime: endTime.toISOString(),
-      hoursRemaining: Number(durationValue) * 24,
-      targetUrl: targetUrl || 'https://default.oneallhost.com',
+      durationValue: Number(durationValue),
+      priceUsd,
+      rebateCreditUsd: priceUsd,
       status: 'active',
-    };
+      targetUrl: targetUrl || 'https://default.oneallhost.com',
+      expiresAt: endTime.toISOString(),
+    });
 
-    rentalsStore[newRental.id] = newRental;
-
-    return res.json({
+    return res.status(201).json({
       success: true,
       rental: newRental,
     });
@@ -71,32 +67,15 @@ rentalRouter.post('/create', async (req: Request, res: Response) => {
 // 2. Fetch specific rental status & live time remaining
 rentalRouter.get('/:id', async (req: Request, res: Response) => {
   const id = String(req.params.id);
-  const rental = rentalsStore[id];
+  const list = await db.rentalsRepo.list();
+  const rental = list.find((r) => r.id === id);
   if (!rental) {
     return res.status(404).json({ error: 'Rental not found' });
   }
   return res.json({ success: true, rental });
 });
 
-// 3. Extend active lease duration
-rentalRouter.post('/:id/extend', async (req: Request, res: Response) => {
-  const id = String(req.params.id);
-  const rental = rentalsStore[id];
-  if (!rental) {
-    return res.status(404).json({ error: 'Rental not found' });
-  }
-  const { additionalHours, costUsd } = req.body;
-  if (!additionalHours || !costUsd) {
-    return res.status(400).json({ error: 'additionalHours and costUsd are required' });
-  }
-
-  rental.hoursRemaining += Number(additionalHours);
-  rental.pricePaidUsd += Number(costUsd);
-  rental.pricePaidXaf = Math.round(rental.pricePaidUsd * 615.5);
-  return res.json({ success: true, rental, message: `Extended by ${additionalHours} hours` });
-});
-
-// 4. Convert rental to full domain purchase with 100% rebate (§4 / §8b)
+// 3. Convert rental to full domain purchase with 100% rebate (§4 / §8b)
 rentalRouter.post('/convert-to-purchase', async (req: Request, res: Response) => {
   try {
     const { rentalId, targetDomain, domainPriceUsd } = req.body;
@@ -104,12 +83,12 @@ rentalRouter.post('/convert-to-purchase', async (req: Request, res: Response) =>
       return res.status(400).json({ error: 'rentalId, targetDomain, and domainPriceUsd are required' });
     }
 
-    const rental = rentalsStore[rentalId];
-    if (!rental) {
+    const converted = await db.rentalsRepo.convert(rentalId);
+    if (!converted) {
       return res.status(404).json({ error: 'Active rental record not found for conversion' });
     }
     
-    const rebateCreditUsd = Number(rental.pricePaidUsd || 0);
+    const rebateCreditUsd = Number(converted.rebateCreditUsd || 0);
     const netDueUsd = Math.max(0, Number((Number(domainPriceUsd) - rebateCreditUsd).toFixed(2)));
     const netDueXaf = Math.round(netDueUsd * 615.5);
 

@@ -1,7 +1,9 @@
 /**
- * Production In-Process Computed Database & State Engine
+ * Standardized Supabase PostgreSQL Database & State Repository
  * Computes live revenue, dynamic audits, domain lifecycle, and real-time transaction ledgers.
  */
+
+import { supabase, isSupabaseConfigured } from './client';
 
 export interface UserRecord {
   id: string;
@@ -14,7 +16,7 @@ export interface UserRecord {
   balanceXaf: number;
   autoDebitEnabled: boolean;
   twoFactorEnabled: boolean;
-  kycStatus: 'pending' | 'verified' | 'rejected';
+  kycStatus: 'pending' | 'verified' | 'rejected' | 'unverified';
   createdAt: string;
 }
 
@@ -25,7 +27,7 @@ export interface DomainRecord {
   registrar: string;
   registeredAt: string;
   expiresAt: string;
-  status: 'active' | 'expired' | 'suspended';
+  status: 'active' | 'expired' | 'suspended' | 'expiring_soon';
   whoisPrivacy: boolean;
   transferLock: boolean;
   autoRenew: boolean;
@@ -39,9 +41,12 @@ export interface RentalRecord {
   targetDomain: string;
   clientName: string;
   durationHours: number;
+  durationType?: string;
+  durationValue?: number;
   priceUsd: number;
   rebateCreditUsd: number;
-  status: 'active' | 'converted_to_purchase' | 'expired';
+  status: 'active' | 'converted_to_purchase' | 'expired' | 'cancelled';
+  targetUrl?: string;
   createdAt: string;
   expiresAt: string;
   convertedAt?: string;
@@ -54,7 +59,7 @@ export interface PaymentRecord {
   method: string;
   amountUsd: number;
   amountXaf: number;
-  status: 'pending' | 'settled' | 'failed' | 'refunded';
+  status: 'pending' | 'settled' | 'completed' | 'failed' | 'refunded';
   item: string;
   reference: string;
   timestamp: string;
@@ -74,77 +79,43 @@ export interface PaymentMethodRecord {
   userId: string;
   type: 'card' | 'momo';
   cardHolder: string;
-  brand: string; // 'Visa' | 'Mastercard' | 'Amex' | 'MTN' | 'Orange'
+  brand: string;
   last4: string;
-  expiry: string; // 'MM/YY'
+  expiry: string;
   isDefault: boolean;
   createdAt: string;
 }
 
-class DatabaseEngine {
-  private users: Map<string, UserRecord> = new Map();
-  private domains: Map<string, DomainRecord> = new Map();
-  private rentals: Map<string, RentalRecord> = new Map();
-  private payments: Map<string, PaymentRecord> = new Map();
-  private paymentMethods: Map<string, PaymentMethodRecord> = new Map();
-  private auditLogs: AuditLogRecord[] = [];
+export interface WaitlistRecord {
+  id: string;
+  email: string;
+  tier: string;
+  queueNumber: number;
+  createdAt: string;
+}
+
+class SupabaseDatabaseEngine {
+  // Resilient memory cache backing live Supabase sync
+  private usersCache: Map<string, UserRecord> = new Map();
+  private domainsCache: Map<string, DomainRecord> = new Map();
+  private rentalsCache: Map<string, RentalRecord> = new Map();
+  private paymentsCache: Map<string, PaymentRecord> = new Map();
+  private paymentMethodsCache: Map<string, PaymentMethodRecord> = new Map();
+  private auditLogsCache: AuditLogRecord[] = [];
+  private waitlistCache: WaitlistRecord[] = [];
 
   constructor() {
-    // Initial production state initialization
-    const initialUser: UserRecord = {
-      id: 'usr-1',
-      name: 'Account Owner',
-      email: 'client@oneallhost.com',
-      phone: '670000000',
-      countryCode: 'CM',
-      preferredCurrency: 'USD',
-      balanceUsd: 125.50,
-      balanceXaf: 77500,
-      autoDebitEnabled: true,
-      twoFactorEnabled: false,
-      kycStatus: 'verified',
-      createdAt: new Date().toISOString(),
-    };
-    this.users.set(initialUser.id, initialUser);
-
-    // Initial saved payment methods
-    const defaultCard: PaymentMethodRecord = {
-      id: 'pm-1',
-      userId: 'usr-1',
-      type: 'card',
-      cardHolder: 'ACCOUNT OWNER',
-      brand: 'Visa',
-      last4: '4242',
-      expiry: '12/28',
-      isDefault: true,
-      createdAt: new Date().toISOString(),
-    };
-    const backupCard: PaymentMethodRecord = {
-      id: 'pm-2',
-      userId: 'usr-1',
-      type: 'card',
-      cardHolder: 'ACCOUNT OWNER',
-      brand: 'Mastercard',
-      last4: '8890',
-      expiry: '09/27',
-      isDefault: false,
-      createdAt: new Date().toISOString(),
-    };
-    this.paymentMethods.set(defaultCard.id, defaultCard);
-    this.paymentMethods.set(backupCard.id, backupCard);
-
-    this.auditLogs.push({
-      id: `log-${Date.now()}-init`,
-      action: 'SYSTEM_BOOT',
+    // Clean production state - all data is loaded from live Supabase Postgres tables
+  }
       actor: 'system',
-      target: 'Oneallhost API Engine',
+      target: 'Oneallhost Supabase Engine',
       timestamp: new Date().toISOString(),
     });
   }
 
   // --- Users & Wallet ---
   public usersRepo = {
-    create: (user: Omit<UserRecord, 'id' | 'createdAt' | 'balanceUsd' | 'balanceXaf' | 'autoDebitEnabled'>): UserRecord => {
+    create: async (user: Omit<UserRecord, 'id' | 'createdAt' | 'balanceUsd' | 'balanceXaf' | 'autoDebitEnabled'>): Promise<UserRecord> => {
       const id = `usr-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
       const record: UserRecord = {
         ...user,
@@ -154,102 +125,413 @@ class DatabaseEngine {
         autoDebitEnabled: true,
         createdAt: new Date().toISOString(),
       };
-      this.users.set(id, record);
-      this.auditLogsRepo.log('USER_REGISTERED', user.email, `User ${id}`);
+
+      if (isSupabaseConfigured) {
+        try {
+          await supabase.from('users').insert({
+            id: record.id,
+            email: record.email,
+            name: record.name,
+            phone: record.phone,
+            country_code: record.countryCode,
+            preferred_currency: record.preferredCurrency,
+            balance_usd: record.balanceUsd,
+            balance_xaf: record.balanceXaf,
+            auto_debit_enabled: record.autoDebitEnabled,
+            two_factor_enabled: record.twoFactorEnabled,
+            kyc_status: record.kycStatus,
+          });
+        } catch (err) {
+          console.error('[Supabase users.create]', err);
+        }
+      }
+
+      this.usersCache.set(id, record);
+      await this.auditLogsRepo.log('USER_REGISTERED', user.email, `User ${id}`);
       return record;
     },
-    findById: (id: string): UserRecord | undefined => this.users.get(id),
-    findByEmail: (email: string): UserRecord | undefined => {
-      return Array.from(this.users.values()).find((u) => u.email.toLowerCase() === email.toLowerCase());
+
+    findById: async (id: string): Promise<UserRecord | undefined> => {
+      if (isSupabaseConfigured) {
+        try {
+          const { data } = await supabase.from('users').select('*').eq('id', id).maybeSingle();
+          if (data) {
+            const mapped: UserRecord = {
+              id: data.id,
+              name: data.name,
+              email: data.email,
+              phone: data.phone || '',
+              countryCode: data.country_code || 'CM',
+              preferredCurrency: data.preferred_currency || 'USD',
+              balanceUsd: Number(data.balance_usd || 0),
+              balanceXaf: Number(data.balance_xaf || 0),
+              autoDebitEnabled: Boolean(data.auto_debit_enabled),
+              twoFactorEnabled: Boolean(data.two_factor_enabled),
+              kycStatus: data.kyc_status || 'verified',
+              createdAt: data.created_at,
+            };
+            this.usersCache.set(id, mapped);
+            return mapped;
+          }
+        } catch (err) {
+          console.error('[Supabase users.findById]', err);
+        }
+      }
+      return this.usersCache.get(id);
     },
-    list: (): UserRecord[] => Array.from(this.users.values()),
-    update: (id: string, updates: Partial<UserRecord>): UserRecord | undefined => {
-      const existing = this.users.get(id);
+
+    findByEmail: async (email: string): Promise<UserRecord | undefined> => {
+      if (isSupabaseConfigured) {
+        try {
+          const { data } = await supabase.from('users').select('*').ilike('email', email.trim()).maybeSingle();
+          if (data) {
+            const mapped: UserRecord = {
+              id: data.id,
+              name: data.name,
+              email: data.email,
+              phone: data.phone || '',
+              countryCode: data.country_code || 'CM',
+              preferredCurrency: data.preferred_currency || 'USD',
+              balanceUsd: Number(data.balance_usd || 0),
+              balanceXaf: Number(data.balance_xaf || 0),
+              autoDebitEnabled: Boolean(data.auto_debit_enabled),
+              twoFactorEnabled: Boolean(data.two_factor_enabled),
+              kycStatus: data.kyc_status || 'verified',
+              createdAt: data.created_at,
+            };
+            this.usersCache.set(mapped.id, mapped);
+            return mapped;
+          }
+        } catch (err) {
+          console.error('[Supabase users.findByEmail]', err);
+        }
+      }
+      return Array.from(this.usersCache.values()).find((u) => u.email.toLowerCase() === email.toLowerCase());
+    },
+
+    list: async (): Promise<UserRecord[]> => {
+      if (isSupabaseConfigured) {
+        try {
+          const { data } = await supabase.from('users').select('*');
+          if (data && data.length > 0) {
+            const mappedList: UserRecord[] = data.map((d: any) => ({
+              id: d.id,
+              name: d.name,
+              email: d.email,
+              phone: d.phone || '',
+              countryCode: d.country_code || 'CM',
+              preferredCurrency: d.preferred_currency || 'USD',
+              balanceUsd: Number(d.balance_usd || 0),
+              balanceXaf: Number(d.balance_xaf || 0),
+              autoDebitEnabled: Boolean(d.auto_debit_enabled),
+              twoFactorEnabled: Boolean(d.two_factor_enabled),
+              kycStatus: d.kyc_status || 'verified',
+              createdAt: d.created_at,
+            }));
+            mappedList.forEach((u) => this.usersCache.set(u.id, u));
+            return mappedList;
+          }
+        } catch (err) {
+          console.error('[Supabase users.list]', err);
+        }
+      }
+      return Array.from(this.usersCache.values());
+    },
+
+    update: async (id: string, updates: Partial<UserRecord>): Promise<UserRecord | undefined> => {
+      const existing = await this.usersRepo.findById(id);
       if (!existing) return undefined;
       const updated = { ...existing, ...updates };
-      this.users.set(id, updated);
+
+      if (isSupabaseConfigured) {
+        try {
+          await supabase.from('users').update({
+            ...(updates.name ? { name: updates.name } : {}),
+            ...(updates.phone !== undefined ? { phone: updates.phone } : {}),
+            ...(updates.preferredCurrency ? { preferred_currency: updates.preferredCurrency } : {}),
+            ...(updates.balanceUsd !== undefined ? { balance_usd: updates.balanceUsd } : {}),
+            ...(updates.balanceXaf !== undefined ? { balance_xaf: updates.balanceXaf } : {}),
+            ...(updates.autoDebitEnabled !== undefined ? { auto_debit_enabled: updates.autoDebitEnabled } : {}),
+            ...(updates.twoFactorEnabled !== undefined ? { two_factor_enabled: updates.twoFactorEnabled } : {}),
+            ...(updates.kycStatus ? { kyc_status: updates.kycStatus } : {}),
+            updated_at: new Date().toISOString(),
+          }).eq('id', id);
+        } catch (err) {
+          console.error('[Supabase users.update]', err);
+        }
+      }
+
+      this.usersCache.set(id, updated);
       return updated;
     },
-    topupBalance: (id: string, amountUsd: number, amountXaf: number): UserRecord | undefined => {
-      const user = this.users.get(id);
+
+    topupBalance: async (id: string, amountUsd: number, amountXaf: number): Promise<UserRecord | undefined> => {
+      const user = await this.usersRepo.findById(id);
       if (!user) return undefined;
       user.balanceUsd = Number((user.balanceUsd + amountUsd).toFixed(2));
       user.balanceXaf = Math.round(user.balanceXaf + amountXaf);
-      this.users.set(id, user);
-      this.auditLogsRepo.log('WALLET_TOPUP', user.email, `Added $${amountUsd} USD (${amountXaf} XAF)`);
+
+      await this.usersRepo.update(id, { balanceUsd: user.balanceUsd, balanceXaf: user.balanceXaf });
+      await this.auditLogsRepo.log('WALLET_TOPUP', user.email, `Added $${amountUsd} USD (${amountXaf} XAF)`);
       return user;
     },
-    debitBalance: (id: string, amountUsd: number, amountXaf: number): { success: boolean; user?: UserRecord; error?: string } => {
-      const user = this.users.get(id);
+
+    debitBalance: async (id: string, amountUsd: number, amountXaf: number): Promise<{ success: boolean; user?: UserRecord; error?: string }> => {
+      const user = await this.usersRepo.findById(id);
       if (!user) return { success: false, error: 'User not found' };
       if (user.balanceUsd < amountUsd) {
         return { success: false, error: 'Insufficient wallet balance' };
       }
       user.balanceUsd = Number((user.balanceUsd - amountUsd).toFixed(2));
       user.balanceXaf = Math.max(0, Math.round(user.balanceXaf - amountXaf));
-      this.users.set(id, user);
-      this.auditLogsRepo.log('WALLET_DEBIT', user.email, `Deducted $${amountUsd} USD (${amountXaf} XAF)`);
+
+      await this.usersRepo.update(id, { balanceUsd: user.balanceUsd, balanceXaf: user.balanceXaf });
+      await this.auditLogsRepo.log('WALLET_DEBIT', user.email, `Deducted $${amountUsd} USD (${amountXaf} XAF)`);
       return { success: true, user };
     },
   };
 
   // --- Domains ---
   public domainsRepo = {
-    create: (domain: Omit<DomainRecord, 'id' | 'registeredAt'>): DomainRecord => {
+    create: async (domain: Omit<DomainRecord, 'id' | 'registeredAt'>): Promise<DomainRecord> => {
       const id = `dom-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
       const record: DomainRecord = {
         ...domain,
         id,
         registeredAt: new Date().toISOString().split('T')[0],
       };
-      this.domains.set(id, record);
-      this.auditLogsRepo.log('DOMAIN_REGISTERED', domain.userId, domain.name);
+
+      if (isSupabaseConfigured) {
+        try {
+          await supabase.from('domains').insert({
+            id: record.id,
+            user_id: record.userId,
+            name: record.name,
+            registrar: record.registrar,
+            registered_at: record.registeredAt,
+            expires_at: record.expiresAt,
+            status: record.status,
+            whois_privacy: record.whoisPrivacy,
+            transfer_lock: record.transferLock,
+            auto_renew: record.autoRenew,
+            nameservers: record.nameservers,
+          });
+        } catch (err) {
+          console.error('[Supabase domains.create]', err);
+        }
+      }
+
+      this.domainsCache.set(id, record);
+      await this.auditLogsRepo.log('DOMAIN_REGISTERED', domain.userId, domain.name);
       return record;
     },
-    findById: (id: string): DomainRecord | undefined => this.domains.get(id),
-    findByName: (name: string): DomainRecord | undefined => {
-      return Array.from(this.domains.values()).find((d) => d.name.toLowerCase() === name.toLowerCase());
+
+    findById: async (id: string): Promise<DomainRecord | undefined> => {
+      if (isSupabaseConfigured) {
+        try {
+          const { data } = await supabase.from('domains').select('*').eq('id', id).maybeSingle();
+          if (data) {
+            const mapped: DomainRecord = {
+              id: data.id,
+              userId: data.user_id,
+              name: data.name,
+              registrar: data.registrar,
+              registeredAt: data.registered_at,
+              expiresAt: data.expires_at,
+              status: data.status,
+              whoisPrivacy: Boolean(data.whois_privacy),
+              transferLock: Boolean(data.transfer_lock),
+              autoRenew: Boolean(data.auto_renew),
+              nameservers: data.nameservers || [],
+            };
+            this.domainsCache.set(id, mapped);
+            return mapped;
+          }
+        } catch (err) {
+          console.error('[Supabase domains.findById]', err);
+        }
+      }
+      return this.domainsCache.get(id);
     },
-    list: (userId?: string): DomainRecord[] => {
-      const all = Array.from(this.domains.values());
+
+    findByName: async (name: string): Promise<DomainRecord | undefined> => {
+      if (isSupabaseConfigured) {
+        try {
+          const { data } = await supabase.from('domains').select('*').ilike('name', name.trim()).maybeSingle();
+          if (data) {
+            const mapped: DomainRecord = {
+              id: data.id,
+              userId: data.user_id,
+              name: data.name,
+              registrar: data.registrar,
+              registeredAt: data.registered_at,
+              expiresAt: data.expires_at,
+              status: data.status,
+              whoisPrivacy: Boolean(data.whois_privacy),
+              transferLock: Boolean(data.transfer_lock),
+              autoRenew: Boolean(data.auto_renew),
+              nameservers: data.nameservers || [],
+            };
+            this.domainsCache.set(mapped.id, mapped);
+            return mapped;
+          }
+        } catch (err) {
+          console.error('[Supabase domains.findByName]', err);
+        }
+      }
+      return Array.from(this.domainsCache.values()).find((d) => d.name.toLowerCase() === name.toLowerCase());
+    },
+
+    list: async (userId?: string): Promise<DomainRecord[]> => {
+      if (isSupabaseConfigured) {
+        try {
+          let query = supabase.from('domains').select('*');
+          if (userId) query = query.eq('user_id', userId);
+          const { data } = await query;
+          if (data) {
+            const mappedList: DomainRecord[] = data.map((d: any) => ({
+              id: d.id,
+              userId: d.user_id,
+              name: d.name,
+              registrar: d.registrar,
+              registeredAt: d.registered_at,
+              expiresAt: d.expires_at,
+              status: d.status,
+              whoisPrivacy: Boolean(d.whois_privacy),
+              transferLock: Boolean(d.transfer_lock),
+              autoRenew: Boolean(d.auto_renew),
+              nameservers: d.nameservers || [],
+            }));
+            mappedList.forEach((dom) => this.domainsCache.set(dom.id, dom));
+            return mappedList;
+          }
+        } catch (err) {
+          console.error('[Supabase domains.list]', err);
+        }
+      }
+      const all = Array.from(this.domainsCache.values());
       return userId ? all.filter((d) => d.userId === userId) : all;
     },
-    update: (id: string, updates: Partial<DomainRecord>): DomainRecord | undefined => {
-      const existing = this.domains.get(id);
+
+    update: async (id: string, updates: Partial<DomainRecord>): Promise<DomainRecord | undefined> => {
+      const existing = await this.domainsRepo.findById(id);
       if (!existing) return undefined;
       const updated = { ...existing, ...updates };
-      this.domains.set(id, updated);
+
+      if (isSupabaseConfigured) {
+        try {
+          await supabase.from('domains').update({
+            ...(updates.status ? { status: updates.status } : {}),
+            ...(updates.whoisPrivacy !== undefined ? { whois_privacy: updates.whoisPrivacy } : {}),
+            ...(updates.transferLock !== undefined ? { transfer_lock: updates.transferLock } : {}),
+            ...(updates.autoRenew !== undefined ? { auto_renew: updates.autoRenew } : {}),
+            ...(updates.nameservers ? { nameservers: updates.nameservers } : {}),
+            updated_at: new Date().toISOString(),
+          }).eq('id', id);
+        } catch (err) {
+          console.error('[Supabase domains.update]', err);
+        }
+      }
+
+      this.domainsCache.set(id, updated);
       return updated;
     },
   };
 
   // --- Subdomain Rentals ---
   public rentalsRepo = {
-    create: (rental: Omit<RentalRecord, 'id' | 'createdAt'>): RentalRecord => {
+    create: async (rental: Omit<RentalRecord, 'id' | 'createdAt'>): Promise<RentalRecord> => {
       const id = `rnt-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
       const record: RentalRecord = {
         ...rental,
         id,
         createdAt: new Date().toISOString(),
       };
-      this.rentals.set(id, record);
-      this.auditLogsRepo.log('RENTAL_CREATED', rental.userId, rental.subdomain);
+
+      if (isSupabaseConfigured) {
+        try {
+          await supabase.from('subdomain_rentals').insert({
+            id: record.id,
+            user_id: record.userId,
+            subdomain: record.subdomain,
+            target_domain: record.targetDomain,
+            client_name: record.clientName,
+            duration_hours: record.durationHours,
+            duration_type: record.durationType || 'day',
+            duration_value: record.durationValue || 7,
+            price_usd: record.priceUsd,
+            rebate_credit_usd: record.rebateCreditUsd,
+            status: record.status,
+            target_url: record.targetUrl || 'https://default.oneallhost.com',
+            expires_at: record.expiresAt,
+          });
+        } catch (err) {
+          console.error('[Supabase rentals.create]', err);
+        }
+      }
+
+      this.rentalsCache.set(id, record);
+      await this.auditLogsRepo.log('RENTAL_CREATED', rental.userId, rental.subdomain);
       return record;
     },
-    list: (userId?: string): RentalRecord[] => {
-      const all = Array.from(this.rentals.values());
+
+    list: async (userId?: string): Promise<RentalRecord[]> => {
+      if (isSupabaseConfigured) {
+        try {
+          let query = supabase.from('subdomain_rentals').select('*');
+          if (userId) query = query.eq('user_id', userId);
+          const { data } = await query;
+          if (data) {
+            const mappedList: RentalRecord[] = data.map((r: any) => ({
+              id: r.id,
+              userId: r.user_id,
+              subdomain: r.subdomain,
+              targetDomain: r.target_domain,
+              clientName: r.client_name,
+              durationHours: r.duration_hours,
+              durationType: r.duration_type,
+              durationValue: r.duration_value,
+              priceUsd: Number(r.price_usd),
+              rebateCreditUsd: Number(r.rebate_credit_usd),
+              status: r.status,
+              targetUrl: r.target_url,
+              createdAt: r.created_at,
+              expiresAt: r.expires_at,
+              convertedAt: r.converted_at,
+            }));
+            mappedList.forEach((r) => this.rentalsCache.set(r.id, r));
+            return mappedList;
+          }
+        } catch (err) {
+          console.error('[Supabase rentals.list]', err);
+        }
+      }
+      const all = Array.from(this.rentalsCache.values());
       return userId ? all.filter((r) => r.userId === userId) : all;
     },
-    convert: (id: string): RentalRecord | undefined => {
-      const existing = this.rentals.get(id);
+
+    convert: async (id: string): Promise<RentalRecord | undefined> => {
+      const existing = this.rentalsCache.get(id);
       if (!existing) return undefined;
       const updated: RentalRecord = {
         ...existing,
         status: 'converted_to_purchase',
         convertedAt: new Date().toISOString(),
       };
-      this.rentals.set(id, updated);
-      this.auditLogsRepo.log('RENTAL_CONVERTED_TO_PURCHASE', existing.userId, existing.targetDomain, {
+
+      if (isSupabaseConfigured) {
+        try {
+          await supabase.from('subdomain_rentals').update({
+            status: 'converted_to_purchase',
+            converted_at: updated.convertedAt,
+          }).eq('id', id);
+        } catch (err) {
+          console.error('[Supabase rentals.convert]', err);
+        }
+      }
+
+      this.rentalsCache.set(id, updated);
+      await this.auditLogsRepo.log('RENTAL_CONVERTED_TO_PURCHASE', existing.userId, existing.targetDomain, {
         rebateAppliedUsd: existing.rebateCreditUsd,
       });
       return updated;
@@ -258,30 +540,74 @@ class DatabaseEngine {
 
   // --- Payments & Ledger ---
   public paymentsRepo = {
-    create: (payment: Omit<PaymentRecord, 'id' | 'timestamp'>): PaymentRecord => {
+    create: async (payment: Omit<PaymentRecord, 'id' | 'timestamp'>): Promise<PaymentRecord> => {
       const id = payment.reference || `ONH-TXN-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
       const record: PaymentRecord = {
         ...payment,
         id,
         timestamp: new Date().toISOString(),
       };
-      this.payments.set(id, record);
-      this.auditLogsRepo.log('PAYMENT_SETTLED', payment.userId, `${payment.amountXaf} XAF (${payment.item})`);
+
+      if (isSupabaseConfigured) {
+        try {
+          await supabase.from('payments').insert({
+            id: record.id,
+            user_id: record.userId,
+            client: record.client,
+            method: record.method,
+            amount_usd: record.amountUsd,
+            amount_xaf: record.amountXaf,
+            status: record.status,
+            item: record.item,
+            reference: record.reference,
+          });
+        } catch (err) {
+          console.error('[Supabase payments.create]', err);
+        }
+      }
+
+      this.paymentsCache.set(id, record);
+      await this.auditLogsRepo.log('PAYMENT_SETTLED', payment.userId, `${payment.amountXaf} XAF (${payment.item})`);
       return record;
     },
-    list: (userId?: string): PaymentRecord[] => {
-      const all = Array.from(this.payments.values());
+
+    list: async (userId?: string): Promise<PaymentRecord[]> => {
+      if (isSupabaseConfigured) {
+        try {
+          let query = supabase.from('payments').select('*').order('timestamp', { ascending: false });
+          if (userId) query = query.eq('user_id', userId);
+          const { data } = await query;
+          if (data) {
+            const mappedList: PaymentRecord[] = data.map((p: any) => ({
+              id: p.id,
+              userId: p.user_id,
+              client: p.client,
+              method: p.method,
+              amountUsd: Number(p.amount_usd),
+              amountXaf: Number(p.amount_xaf),
+              status: p.status,
+              item: p.item,
+              reference: p.reference,
+              timestamp: p.timestamp,
+            }));
+            mappedList.forEach((p) => this.paymentsCache.set(p.id, p));
+            return mappedList;
+          }
+        } catch (err) {
+          console.error('[Supabase payments.list]', err);
+        }
+      }
+      const all = Array.from(this.paymentsCache.values());
       return userId ? all.filter((p) => p.userId === userId) : all;
     },
   };
 
   // --- Saved Payment Methods / Cards ---
   public paymentMethodsRepo = {
-    create: (method: Omit<PaymentMethodRecord, 'id' | 'createdAt'>): PaymentMethodRecord => {
+    create: async (method: Omit<PaymentMethodRecord, 'id' | 'createdAt'>): Promise<PaymentMethodRecord> => {
       const id = `pm-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
       if (method.isDefault) {
-        // Unset any existing default for this user
-        for (const existing of this.paymentMethods.values()) {
+        for (const existing of this.paymentMethodsCache.values()) {
           if (existing.userId === method.userId) {
             existing.isDefault = false;
           }
@@ -292,40 +618,109 @@ class DatabaseEngine {
         id,
         createdAt: new Date().toISOString(),
       };
-      this.paymentMethods.set(id, record);
-      this.auditLogsRepo.log('PAYMENT_METHOD_ADDED', method.userId, `${method.brand} ending in ${method.last4}`);
+
+      if (isSupabaseConfigured) {
+        try {
+          if (method.isDefault) {
+            await supabase.from('payment_methods').update({ is_default: false }).eq('user_id', method.userId);
+          }
+          await supabase.from('payment_methods').insert({
+            id: record.id,
+            user_id: record.userId,
+            type: record.type,
+            card_holder: record.cardHolder,
+            brand: record.brand,
+            last4: record.last4,
+            expiry: record.expiry,
+            is_default: record.isDefault,
+          });
+        } catch (err) {
+          console.error('[Supabase paymentMethods.create]', err);
+        }
+      }
+
+      this.paymentMethodsCache.set(id, record);
+      await this.auditLogsRepo.log('PAYMENT_METHOD_ADDED', method.userId, `${method.brand} ending in ${method.last4}`);
       return record;
     },
-    list: (userId?: string): PaymentMethodRecord[] => {
-      const all = Array.from(this.paymentMethods.values());
+
+    list: async (userId?: string): Promise<PaymentMethodRecord[]> => {
+      if (isSupabaseConfigured) {
+        try {
+          let query = supabase.from('payment_methods').select('*');
+          if (userId) query = query.eq('user_id', userId);
+          const { data } = await query;
+          if (data) {
+            const mappedList: PaymentMethodRecord[] = data.map((m: any) => ({
+              id: m.id,
+              userId: m.user_id,
+              type: m.type,
+              cardHolder: m.card_holder,
+              brand: m.brand,
+              last4: m.last4,
+              expiry: m.expiry,
+              isDefault: Boolean(m.is_default),
+              createdAt: m.created_at,
+            }));
+            mappedList.forEach((m) => this.paymentMethodsCache.set(m.id, m));
+            return mappedList;
+          }
+        } catch (err) {
+          console.error('[Supabase paymentMethods.list]', err);
+        }
+      }
+      const all = Array.from(this.paymentMethodsCache.values());
       return userId ? all.filter((m) => m.userId === userId) : all;
     },
-    delete: (id: string, userId?: string): boolean => {
-      const existing = this.paymentMethods.get(id);
+
+    delete: async (id: string, userId?: string): Promise<boolean> => {
+      const existing = this.paymentMethodsCache.get(id);
       if (!existing) return false;
       if (userId && existing.userId !== userId) return false;
-      this.paymentMethods.delete(id);
-      this.auditLogsRepo.log('PAYMENT_METHOD_REMOVED', existing.userId, `${existing.brand} ending in ${existing.last4}`);
+
+      if (isSupabaseConfigured) {
+        try {
+          await supabase.from('payment_methods').delete().eq('id', id);
+        } catch (err) {
+          console.error('[Supabase paymentMethods.delete]', err);
+        }
+      }
+
+      this.paymentMethodsCache.delete(id);
+      await this.auditLogsRepo.log('PAYMENT_METHOD_REMOVED', existing.userId, `${existing.brand} ending in ${existing.last4}`);
       return true;
     },
-    setDefault: (id: string, userId?: string): PaymentMethodRecord | undefined => {
-      const target = this.paymentMethods.get(id);
+
+    setDefault: async (id: string, userId?: string): Promise<PaymentMethodRecord | undefined> => {
+      const target = this.paymentMethodsCache.get(id);
       if (!target) return undefined;
       if (userId && target.userId !== userId) return undefined;
 
-      for (const existing of this.paymentMethods.values()) {
+      for (const existing of this.paymentMethodsCache.values()) {
         if (!userId || existing.userId === userId) {
           existing.isDefault = existing.id === id;
         }
       }
-      this.auditLogsRepo.log('PAYMENT_METHOD_SET_DEFAULT', target.userId, `${target.brand} ending in ${target.last4}`);
+
+      if (isSupabaseConfigured) {
+        try {
+          if (userId) {
+            await supabase.from('payment_methods').update({ is_default: false }).eq('user_id', userId);
+          }
+          await supabase.from('payment_methods').update({ is_default: true }).eq('id', id);
+        } catch (err) {
+          console.error('[Supabase paymentMethods.setDefault]', err);
+        }
+      }
+
+      await this.auditLogsRepo.log('PAYMENT_METHOD_SET_DEFAULT', target.userId, `${target.brand} ending in ${target.last4}`);
       return target;
     },
   };
 
   // --- Audit Logs ---
   public auditLogsRepo = {
-    log: (action: string, actor: string, target: string, metadata?: Record<string, any>): AuditLogRecord => {
+    log: async (action: string, actor: string, target: string, metadata?: Record<string, any>): Promise<AuditLogRecord> => {
       const logRecord: AuditLogRecord = {
         id: `log-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`,
         action,
@@ -334,29 +729,121 @@ class DatabaseEngine {
         timestamp: new Date().toISOString(),
         metadata,
       };
-      this.auditLogs.unshift(logRecord);
-      if (this.auditLogs.length > 500) this.auditLogs.pop();
+
+      if (isSupabaseConfigured) {
+        try {
+          await supabase.from('audit_logs').insert({
+            id: logRecord.id,
+            action: logRecord.action,
+            actor: logRecord.actor,
+            target: logRecord.target,
+            metadata: logRecord.metadata || {},
+          });
+        } catch (err) {
+          console.error('[Supabase auditLogs.log]', err);
+        }
+      }
+
+      this.auditLogsCache.unshift(logRecord);
+      if (this.auditLogsCache.length > 500) this.auditLogsCache.pop();
       return logRecord;
     },
-    list: (): AuditLogRecord[] => this.auditLogs,
+
+    list: async (): Promise<AuditLogRecord[]> => {
+      if (isSupabaseConfigured) {
+        try {
+          const { data } = await supabase.from('audit_logs').select('*').order('timestamp', { ascending: false }).limit(200);
+          if (data && data.length > 0) {
+            return data.map((l: any) => ({
+              id: l.id,
+              action: l.action,
+              actor: l.actor,
+              target: l.target,
+              timestamp: l.timestamp,
+              metadata: l.metadata,
+            }));
+          }
+        } catch (err) {
+          console.error('[Supabase auditLogs.list]', err);
+        }
+      }
+      return this.auditLogsCache;
+    },
   };
 
-  // --- Dynamic Compute Engine (Real Dynamic Aggregations) ---
-  public computeStats = () => {
-    const allPayments = Array.from(this.payments.values()).filter((p) => p.status === 'settled');
-    const totalRevenueUsd = allPayments.reduce((sum, p) => sum + p.amountUsd, 0);
-    const totalRevenueXaf = allPayments.reduce((sum, p) => sum + p.amountXaf, 0);
+  // --- Cloud Hosting Waitlist ---
+  public waitlistRepo = {
+    join: async (email: string, tier: string = 'professional', ipAddress?: string): Promise<{ success: boolean; queueNumber: number }> => {
+      const calculatedRank = Math.floor(100 + (email.length * 7) % 89);
+      const record: WaitlistRecord = {
+        id: `hwl-${Date.now()}`,
+        email: email.toLowerCase().trim(),
+        tier,
+        queueNumber: calculatedRank,
+        createdAt: new Date().toISOString(),
+      };
+
+      if (isSupabaseConfigured) {
+        try {
+          await supabase.from('hosting_waitlist').insert({
+            id: record.id,
+            email: record.email,
+            tier: record.tier,
+            queue_number: record.queueNumber,
+            ip_address: ipAddress || null,
+          });
+        } catch (err) {
+          console.error('[Supabase waitlist.join]', err);
+        }
+      }
+
+      this.waitlistCache.push(record);
+      await this.auditLogsRepo.log('WAITLIST_JOINED', email, `${tier.toUpperCase()} Tier (Rank #${calculatedRank})`);
+      return { success: true, queueNumber: calculatedRank };
+    },
+
+    list: async (): Promise<WaitlistRecord[]> => {
+      if (isSupabaseConfigured) {
+        try {
+          const { data } = await supabase.from('hosting_waitlist').select('*').order('created_at', { ascending: false });
+          if (data) {
+            return data.map((w: any) => ({
+              id: w.id,
+              email: w.email,
+              tier: w.tier,
+              queueNumber: w.queue_number,
+              createdAt: w.created_at,
+            }));
+          }
+        } catch (err) {
+          console.error('[Supabase waitlist.list]', err);
+        }
+      }
+      return this.waitlistCache;
+    },
+  };
+
+  // --- Dynamic Live Compute Engine ---
+  public computeStats = async () => {
+    const allPayments = await this.paymentsRepo.list();
+    const settledPayments = allPayments.filter((p) => p.status === 'settled' || p.status === 'completed');
+    const totalRevenueUsd = settledPayments.reduce((sum, p) => sum + p.amountUsd, 0);
+    const totalRevenueXaf = settledPayments.reduce((sum, p) => sum + p.amountXaf, 0);
+
+    const domains = await this.domainsRepo.list();
+    const rentals = await this.rentalsRepo.list();
+    const users = await this.usersRepo.list();
 
     return {
-      totalDomains: this.domains.size,
-      activeRentals: Array.from(this.rentals.values()).filter((r) => r.status === 'active').length,
-      totalClients: this.users.size,
+      totalDomains: domains.length,
+      activeRentals: rentals.filter((r) => r.status === 'active').length,
+      totalClients: users.length,
       totalRevenueUsd: Number(totalRevenueUsd.toFixed(2)),
       totalRevenueXaf: Math.round(totalRevenueXaf),
-      totalTransactionsCount: allPayments.length,
+      totalTransactionsCount: settledPayments.length,
       systemHealth: '100% Operational',
     };
   };
 }
 
-export const db = new DatabaseEngine();
+export const db = new SupabaseDatabaseEngine();

@@ -1,10 +1,61 @@
 import './globals.css';
 import type { Metadata } from 'next';
 import { Toaster } from '@oneallhost/ui';
+import { JsonLd } from '../components/seo/JsonLd';
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://oneallhost.com'),
   title: 'Oneallhost — Domain Registration, Subdomain Leasing & Cloud Hosting',
-  description: 'Unified ICANN domain registrar, flexible staging subdomain rentals, and high-performance cloud hosting with native Mobile Money and Card settlement.',
+  description:
+    'Unified ICANN domain registrar, flexible staging subdomain rentals, and high-performance cloud hosting with native Mobile Money and Card settlement.',
+  keywords: [
+    'Oneallhost',
+    'Domain Registration',
+    'Subdomain Leasing',
+    'Cloud Hosting',
+    'Mobile Money Domains',
+    'MTN MoMo',
+    'Orange Money',
+    'Cameroon Domains',
+    'Anycast DNS',
+  ],
+  authors: [{ name: 'Oneallhost Inc.', url: 'https://oneallhost.com' }],
+  creator: 'Oneallhost Inc.',
+  publisher: 'Oneallhost Inc.',
+  alternates: {
+    canonical: 'https://oneallhost.com',
+  },
+  icons: {
+    icon: '/brand/logo-mark.png',
+    shortcut: '/brand/logo-mark.png',
+    apple: '/brand/logo-mark.png',
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'en_US',
+    url: 'https://oneallhost.com',
+    siteName: 'Oneallhost',
+    title: 'Oneallhost — Domain Registration, Subdomain Leasing & Cloud Hosting',
+    description:
+      'Unified ICANN domain registrar, flexible staging subdomain rentals, and high-performance cloud hosting with native Mobile Money and Card settlement.',
+    images: [
+      {
+        url: '/brand/logo-horizontal.png',
+        width: 1200,
+        height: 630,
+        alt: 'Oneallhost — Global Infrastructure & Cloud Registry',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    site: '@oneallhost',
+    creator: '@oneallhost',
+    title: 'Oneallhost — Domain Registration, Subdomain Leasing & Cloud Hosting',
+    description:
+      'Unified ICANN domain registrar, flexible staging subdomain rentals, and high-performance cloud hosting with native Mobile Money and Card settlement.',
+    images: ['/brand/logo-horizontal.png'],
+  },
 };
 
 export default function RootLayout({
@@ -15,6 +66,7 @@ export default function RootLayout({
   return (
     <html lang="en" data-scroll-behavior="smooth">
       <head>
+        <JsonLd />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         {/* Google Font: Plus Jakarta Sans (Universal Platform Typography) */}

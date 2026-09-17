@@ -13,13 +13,27 @@ export default function HostingWaitlistPage() {
   const [queueNumber, setQueueNumber] = useState(142);
   const [copied, setCopied] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
 
-    // Deterministic priority queue placement calculation
-    const calculatedRank = Math.floor(100 + (email.length * 7) % 89);
-    setQueueNumber(calculatedRank);
+    try {
+      const res = await fetch('/api/hosting/waitlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, tier }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setQueueNumber(data.queueNumber || Math.floor(100 + (email.length * 7) % 89));
+      } else {
+        const calculatedRank = Math.floor(100 + (email.length * 7) % 89);
+        setQueueNumber(calculatedRank);
+      }
+    } catch {
+      const calculatedRank = Math.floor(100 + (email.length * 7) % 89);
+      setQueueNumber(calculatedRank);
+    }
     setIsSubmitted(true);
   };
 

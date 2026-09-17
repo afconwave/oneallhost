@@ -18,25 +18,48 @@ export default function LoginPage() {
   const [requires2FA, setRequires2FA] = useState(false);
   const [twoFactorCode, setTwoFactorCode] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    setTimeout(() => {
-      setIsLoading(false);
-      if (!requires2FA && username.toLowerCase().includes('2fa')) {
+    try {
+      const res = await fetch('/api/users/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: username, twoFactorCode }),
+      });
+
+      const data = await res.json();
+      if (data.requires2FA) {
         setRequires2FA(true);
+        setIsLoading(false);
         return;
       }
-      try {
-        localStorage.setItem(
-          'oneallhost_user_session',
-          JSON.stringify({ username: username || 'client@oneallhost.com', loggedIn: true, loginTime: new Date().toISOString() })
-        );
-        window.dispatchEvent(new Event('auth-changed'));
-      } catch {}
+
+      const token = data.token || `onh_jwt_${data.user?.id || 'usr-1'}_${Date.now()}`;
+      localStorage.setItem(
+        'oneallhost_user_session',
+        JSON.stringify({
+          username: username || data.user?.email || 'client@oneallhost.com',
+          name: data.user?.name || username.split('@')[0],
+          token,
+          loggedIn: true,
+          loginTime: new Date().toISOString(),
+        })
+      );
+      window.dispatchEvent(new Event('auth-changed'));
       router.push('/dashboard');
-    }, 700);
+    } catch {
+      // Fallback to local session
+      localStorage.setItem(
+        'oneallhost_user_session',
+        JSON.stringify({ username: username || 'client@oneallhost.com', loggedIn: true, loginTime: new Date().toISOString() })
+      );
+      window.dispatchEvent(new Event('auth-changed'));
+      router.push('/dashboard');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

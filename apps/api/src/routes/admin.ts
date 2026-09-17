@@ -4,8 +4,8 @@ import { db } from '@oneallhost/db';
 export const adminRouter = Router();
 
 // 1. Dynamic Computed KPI Stats & Overview
-adminRouter.get('/stats', (req: Request, res: Response) => {
-  const stats = db.computeStats();
+adminRouter.get('/stats', async (req: Request, res: Response) => {
+  const stats = await db.computeStats();
   return res.json({
     success: true,
     data: stats,
@@ -13,12 +13,15 @@ adminRouter.get('/stats', (req: Request, res: Response) => {
 });
 
 // 2. Clients & KYC Management
-adminRouter.get('/clients', (req: Request, res: Response) => {
-  const clients = db.usersRepo.list();
+adminRouter.get('/clients', async (req: Request, res: Response) => {
+  const clients = await db.usersRepo.list();
+  const allDomains = await db.domainsRepo.list();
+  const allRentals = await db.rentalsRepo.list();
+
   const enhancedClients = clients.map((c: any) => ({
     ...c,
-    domainsCount: db.domainsRepo.list(c.id).length,
-    rentalsCount: db.rentalsRepo.list(c.id).length,
+    domainsCount: allDomains.filter((d) => d.userId === c.id).length,
+    rentalsCount: allRentals.filter((r) => r.userId === c.id).length,
   }));
   return res.json({
     success: true,
@@ -27,8 +30,8 @@ adminRouter.get('/clients', (req: Request, res: Response) => {
 });
 
 // 3. Domain Registry Overview
-adminRouter.get('/domains', (req: Request, res: Response) => {
-  const domains = db.domainsRepo.list();
+adminRouter.get('/domains', async (req: Request, res: Response) => {
+  const domains = await db.domainsRepo.list();
   return res.json({
     success: true,
     domains,
@@ -36,10 +39,10 @@ adminRouter.get('/domains', (req: Request, res: Response) => {
 });
 
 // 4. Suspend / Flag Domain for Abuse
-adminRouter.post('/domains/:id/suspend', (req: Request, res: Response) => {
+adminRouter.post('/domains/:id/suspend', async (req: Request, res: Response) => {
   const { reason = 'Terms of Service violation' } = req.body;
-  const updated = db.domainsRepo.update(String(req.params.id), { status: 'suspended' });
-  db.auditLogsRepo.log('DOMAIN_SUSPENDED_BY_ADMIN', 'admin@oneallhost.com', String(req.params.id), { reason });
+  const updated = await db.domainsRepo.update(String(req.params.id), { status: 'suspended' });
+  await db.auditLogsRepo.log('DOMAIN_SUSPENDED_BY_ADMIN', 'admin@oneallhost.com', String(req.params.id), { reason });
 
   return res.json({
     success: true,
@@ -51,8 +54,8 @@ adminRouter.post('/domains/:id/suspend', (req: Request, res: Response) => {
 });
 
 // 5. Subdomain Rentals Management & Conversion Rebate Audits
-adminRouter.get('/rentals', (req: Request, res: Response) => {
-  const rentals = db.rentalsRepo.list();
+adminRouter.get('/rentals', async (req: Request, res: Response) => {
+  const rentals = await db.rentalsRepo.list();
   return res.json({
     success: true,
     rentals,
@@ -60,8 +63,8 @@ adminRouter.get('/rentals', (req: Request, res: Response) => {
 });
 
 // 6. Payment Ledger & Settlements (Dynamic Computed Records)
-adminRouter.get('/payments', (req: Request, res: Response) => {
-  const payments = db.paymentsRepo.list();
+adminRouter.get('/payments', async (req: Request, res: Response) => {
+  const payments = await db.paymentsRepo.list();
   return res.json({
     success: true,
     payments,
@@ -69,8 +72,8 @@ adminRouter.get('/payments', (req: Request, res: Response) => {
 });
 
 // 7. Dynamic Immutable Audit Logs (Spec §8g)
-adminRouter.get('/audit-logs', (req: Request, res: Response) => {
-  const logs = db.auditLogsRepo.list();
+adminRouter.get('/audit-logs', async (req: Request, res: Response) => {
+  const logs = await db.auditLogsRepo.list();
   return res.json({
     success: true,
     logs,

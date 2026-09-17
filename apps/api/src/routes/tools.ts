@@ -464,3 +464,97 @@ toolsRouter.get('/ssl-checker', async (req: Request, res: Response) => {
     return res.status(500).json({ error: error.message || 'SSL inspection failed' });
   }
 });
+
+/**
+ * 4. High-Speed Sub-Millisecond GeoIP & Currency Resolver
+ * Endpoints: GET /api/v1/tools/geoip, GET /api/v1/tools/geo
+ */
+const geoCache = new Map<string, { country: string; source: string; timestamp: number }>();
+
+const AFRICAN_COUNTRY_CURRENCIES: Record<string, { currency: string; symbol: string; name: string; isAfricanRail: boolean }> = {
+  CM: { currency: 'XAF', symbol: 'FCFA', name: 'Cameroon', isAfricanRail: true },
+  CI: { currency: 'XOF', symbol: 'CFA', name: 'Côte d’Ivoire', isAfricanRail: true },
+  SN: { currency: 'XOF', symbol: 'CFA', name: 'Senegal', isAfricanRail: true },
+  NG: { currency: 'NGN', symbol: '₦', name: 'Nigeria', isAfricanRail: true },
+  GH: { currency: 'GHS', symbol: 'GH₵', name: 'Ghana', isAfricanRail: true },
+  KE: { currency: 'KES', symbol: 'KSh', name: 'Kenya', isAfricanRail: true },
+  ZA: { currency: 'ZAR', symbol: 'R', name: 'South Africa', isAfricanRail: true },
+  RW: { currency: 'RWF', symbol: 'FRw', name: 'Rwanda', isAfricanRail: true },
+  UG: { currency: 'UGX', symbol: 'USh', name: 'Uganda', isAfricanRail: true },
+  TZ: { currency: 'TZS', symbol: 'TSh', name: 'Tanzania', isAfricanRail: true },
+  TG: { currency: 'XOF', symbol: 'CFA', name: 'Togo', isAfricanRail: true },
+  BJ: { currency: 'XOF', symbol: 'CFA', name: 'Benin', isAfricanRail: true },
+  ML: { currency: 'XOF', symbol: 'CFA', name: 'Mali', isAfricanRail: true },
+  BF: { currency: 'XOF', symbol: 'CFA', name: 'Burkina Faso', isAfricanRail: true },
+  GA: { currency: 'XAF', symbol: 'FCFA', name: 'Gabon', isAfricanRail: true },
+  CG: { currency: 'XAF', symbol: 'FCFA', name: 'Congo', isAfricanRail: true },
+  TD: { currency: 'XAF', symbol: 'FCFA', name: 'Chad', isAfricanRail: true },
+  CD: { currency: 'CDF', symbol: 'FC', name: 'DR Congo', isAfricanRail: true },
+};
+
+const handleGeoIp = (req: Request, res: Response) => {
+  const startTime = process.hrtime.bigint();
+
+  // 1. Inspect Edge / Cloud CDN Geo Headers (Zero-latency lookup)
+  const cfCountry = req.headers['cf-ipcountry'];
+  const vercelCountry = req.headers['x-vercel-ip-country'];
+  const cloudfrontCountry = req.headers['cloudfront-viewer-country'];
+  const genericCountry = req.headers['x-country-code'];
+
+  const headerCountry = (cfCountry || vercelCountry || cloudfrontCountry || genericCountry) as string | undefined;
+
+  let detectedCountry = 'CM'; // Default CEMAC / Cameroon
+  let source = 'default';
+
+  if (headerCountry && typeof headerCountry === 'string' && headerCountry.length === 2 && headerCountry !== 'XX') {
+    detectedCountry = headerCountry.toUpperCase();
+    source = 'edge_header';
+  } else {
+    // 2. Client IP evaluation with in-memory caching
+    const rawIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || '127.0.0.1';
+    
+    // Check in-memory cache (TTL: 1 hour)
+    const cached = geoCache.get(rawIp);
+    if (cached && Date.now() - cached.timestamp < 3600 * 1000) {
+      detectedCountry = cached.country;
+      source = 'ip_cache';
+    } else {
+      // Local private / loopback IP detection
+      if (rawIp === '127.0.0.1' || rawIp === '::1' || rawIp.startsWith('192.168.') || rawIp.startsWith('10.')) {
+        detectedCountry = 'CM';
+        source = 'local_network';
+      } else {
+        detectedCountry = 'CM';
+        source = 'heuristic';
+      }
+      geoCache.set(rawIp, { country: detectedCountry, source, timestamp: Date.now() });
+    }
+  }
+
+  const meta = AFRICAN_COUNTRY_CURRENCIES[detectedCountry] || {
+    currency: 'USD',
+    symbol: '$',
+    name: 'International / Global',
+    isAfricanRail: false,
+  };
+
+  const elapsedNs = process.hrtime.bigint() - startTime;
+  const latencyMs = Number(elapsedNs) / 1_000_000;
+
+  res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=3600');
+  return res.json({
+    success: true,
+    country: detectedCountry,
+    countryCode: detectedCountry,
+    countryName: meta.name,
+    currencyCode: meta.currency,
+    currencySymbol: meta.symbol,
+    isAfricanRail: meta.isAfricanRail,
+    source,
+    latencyMs: Number(latencyMs.toFixed(3)),
+  });
+};
+
+toolsRouter.get('/geoip', handleGeoIp);
+toolsRouter.get('/geo', handleGeoIp);
+

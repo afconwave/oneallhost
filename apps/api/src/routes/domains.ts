@@ -12,7 +12,7 @@ domainRouter.get('/dns/probe', async (_req: Request, res: Response) => {
   const startTime = Date.now();
   // Simulated dynamic edge resolver probe measuring real response
   const queryDuration = Math.floor(Math.random() * 6) + 11; // 11-16ms CEMAC edge
-  const stats = db.computeStats();
+  const stats = await db.computeStats();
 
   return res.json({
     nameserver: 'ns1.oneallhost.com',
@@ -245,7 +245,7 @@ domainRouter.post('/register', async (req: Request, res: Response) => {
     
     // Save to dynamic DB engine
     const expiryDate = new Date(Date.now() + years * 365 * 86400000).toISOString().split('T')[0];
-    const newDomain = db.domainsRepo.create({
+    const newDomain = await db.domainsRepo.create({
       userId,
       name: domainName.toLowerCase(),
       registrar: 'Oneallhost Enterprise Registry',
@@ -338,7 +338,7 @@ domainRouter.post('/:id/dns', async (req: Request, res: Response) => {
   existing.push(newRecord);
   dnsRecordsStore.set(domainId, existing);
 
-  db.auditLogsRepo.log('DNS_RECORD_ADDED', 'usr-1', `${domainId} (${type} ${host} -> ${value})`);
+  await db.auditLogsRepo.log('DNS_RECORD_ADDED', 'usr-1', `${domainId} (${type} ${host} -> ${value})`);
 
   return res.status(201).json({ success: true, record: newRecord });
 });
@@ -352,7 +352,7 @@ domainRouter.delete('/:id/dns/:recId', async (req: Request, res: Response) => {
   const filtered = existing.filter((r) => r.id !== recId);
   dnsRecordsStore.set(domainId, filtered);
 
-  db.auditLogsRepo.log('DNS_RECORD_DELETED', 'usr-1', `${domainId} (record ${recId})`);
+  await db.auditLogsRepo.log('DNS_RECORD_DELETED', 'usr-1', `${domainId} (record ${recId})`);
 
   return res.json({ success: true, message: 'Record deleted' });
 });
@@ -361,7 +361,7 @@ domainRouter.delete('/:id/dns/:recId', async (req: Request, res: Response) => {
 domainRouter.put('/:id/whois', async (req: Request, res: Response) => {
   const domainId = String(req.params.id);
   const { enabled } = req.body;
-  const updated = db.domainsRepo.update(domainId, { whoisPrivacy: Boolean(enabled) });
+  const updated = await db.domainsRepo.update(domainId, { whoisPrivacy: Boolean(enabled) });
   return res.json({ success: true, domain: updated });
 });
 
@@ -369,7 +369,7 @@ domainRouter.put('/:id/whois', async (req: Request, res: Response) => {
 domainRouter.put('/:id/lock', async (req: Request, res: Response) => {
   const domainId = String(req.params.id);
   const { enabled } = req.body;
-  const updated = db.domainsRepo.update(domainId, { transferLock: Boolean(enabled) });
+  const updated = await db.domainsRepo.update(domainId, { transferLock: Boolean(enabled) });
   return res.json({ success: true, domain: updated });
 });
 
@@ -377,6 +377,6 @@ domainRouter.put('/:id/lock', async (req: Request, res: Response) => {
 domainRouter.post('/:id/epp', async (req: Request, res: Response) => {
   const domainId = String(req.params.id);
   const authCode = `ONH-EPP-${Math.random().toString(36).substring(2, 10).toUpperCase()}-2026`;
-  db.auditLogsRepo.log('EPP_CODE_GENERATED', 'usr-1', `Domain ${domainId}`);
+  await db.auditLogsRepo.log('EPP_CODE_GENERATED', 'usr-1', `Domain ${domainId}`);
   return res.json({ success: true, domainId, authCode, validHours: 72 });
 });

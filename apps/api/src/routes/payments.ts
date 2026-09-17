@@ -101,7 +101,7 @@ paymentRouter.post('/create-direct-payment', async (req: Request, res: Response)
     const computedXaf = Math.round(computedUsd * 615.5);
 
     // Record into live database state as pending
-    db.paymentsRepo.create({
+    await db.paymentsRepo.create({
       userId: 'usr-1',
       client: name,
       method: payment_method || 'MTN Mobile Money',
@@ -174,9 +174,9 @@ paymentRouter.post('/webhook', async (req: Request, res: Response) => {
 });
 
 // 4. Get Saved Payment Methods
-paymentRouter.get('/methods', (req: Request, res: Response) => {
+paymentRouter.get('/methods', async (req: Request, res: Response) => {
   const userId = (req.query.userId as string) || 'usr-1';
-  const methods = db.paymentMethodsRepo.list(userId);
+  const methods = await db.paymentMethodsRepo.list(userId);
   return res.json({
     success: true,
     methods,
@@ -184,7 +184,7 @@ paymentRouter.get('/methods', (req: Request, res: Response) => {
 });
 
 // 5. Add / Save New Payment Card
-paymentRouter.post('/methods', (req: Request, res: Response) => {
+paymentRouter.post('/methods', async (req: Request, res: Response) => {
   try {
     const {
       cardNumber,
@@ -211,7 +211,7 @@ paymentRouter.post('/methods', (req: Request, res: Response) => {
       else detectedBrand = 'Visa';
     }
 
-    const newMethod = db.paymentMethodsRepo.create({
+    const newMethod = await db.paymentMethodsRepo.create({
       userId,
       type: 'card',
       cardHolder: cardHolder.toUpperCase(),
@@ -232,10 +232,10 @@ paymentRouter.post('/methods', (req: Request, res: Response) => {
 });
 
 // 6. Delete / Remove Saved Payment Method
-paymentRouter.delete('/methods/:id', (req: Request, res: Response) => {
+paymentRouter.delete('/methods/:id', async (req: Request, res: Response) => {
   const { id } = req.params;
   const userId = (req.query.userId as string) || 'usr-1';
-  const success = db.paymentMethodsRepo.delete(id, userId);
+  const success = await db.paymentMethodsRepo.delete(id, userId);
 
   if (!success) {
     return res.status(404).json({ error: 'Payment method not found' });
@@ -248,10 +248,10 @@ paymentRouter.delete('/methods/:id', (req: Request, res: Response) => {
 });
 
 // 7. Set Default Payment Method
-paymentRouter.put('/methods/:id/default', (req: Request, res: Response) => {
+paymentRouter.put('/methods/:id/default', async (req: Request, res: Response) => {
   const { id } = req.params;
   const userId = (req.query.userId as string) || 'usr-1';
-  const updated = db.paymentMethodsRepo.setDefault(id, userId);
+  const updated = await db.paymentMethodsRepo.setDefault(id, userId);
 
   if (!updated) {
     return res.status(404).json({ error: 'Payment method not found' });

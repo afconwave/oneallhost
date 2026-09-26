@@ -14,7 +14,7 @@
  
 The repository is structured as a Turborepo monorepo powered by PNPM workspaces:
 
-```
+``` 
 oneallhost/
 ├── apps/
 │   ├── api/                    # Express API Gateway (Port 4000)

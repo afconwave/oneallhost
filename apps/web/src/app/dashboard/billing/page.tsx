@@ -293,13 +293,13 @@ export default function BillingManagementPage() {
     doc.setTextColor(17, 17, 17);
     doc.text('TAX INVOICE / OFFICIAL RECEIPT', 20, 44);
 
-    const clientEmail = userProfile?.email || 'client@oneallhost.com';
+    const clientEmail = userProfile?.email || '';
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
     doc.text(`Receipt Reference: ${inv.reference || inv.id}`, 20, 52);
     doc.text(`Date of Issue: ${new Date(inv.timestamp).toLocaleDateString()}`, 20, 58);
-    doc.text(`Billed To: ${inv.client} (${clientEmail})`, 20, 64);
+    doc.text(clientEmail ? `Billed To: ${inv.client} (${clientEmail})` : `Billed To: ${inv.client}`, 20, 64);
     doc.text(`Payment Rail: ${inv.method} (Settled)`, 20, 70);
 
     autoTable(doc, {

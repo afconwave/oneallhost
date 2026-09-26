@@ -17,6 +17,7 @@ export interface UserRecord {
   autoDebitEnabled: boolean;
   twoFactorEnabled: boolean;
   kycStatus: 'pending' | 'verified' | 'rejected' | 'unverified';
+  supportPin: string;
   createdAt: string;
 }
 
@@ -94,6 +95,16 @@ export interface WaitlistRecord {
   createdAt: string;
 }
 
+export interface SystemAnnouncementRecord {
+  id: string;
+  title: string;
+  message: string;
+  type: 'info' | 'warning' | 'success' | 'promo';
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 class SupabaseDatabaseEngine {
   // Resilient memory cache backing live Supabase sync
   private usersCache: Map<string, UserRecord> = new Map();
@@ -103,14 +114,21 @@ class SupabaseDatabaseEngine {
   private paymentMethodsCache: Map<string, PaymentMethodRecord> = new Map();
   private auditLogsCache: AuditLogRecord[] = [];
   private waitlistCache: WaitlistRecord[] = [];
+  private announcementsCache: SystemAnnouncementRecord[] = [];
+  private pricingCache: any = {
+    domain_extensions: [
+      { tld: '.com', base: 9.00, markup: 2.99 },
+      { tld: '.org', base: 10.50, markup: 3.00 },
+      { tld: '.net', base: 11.00, markup: 2.50 }
+    ],
+    hosting_starter: 4.99,
+    hosting_pro: 12.99,
+    hosting_enterprise: 29.99,
+    rental_base: 7.99,
+  };
 
   constructor() {
     // Clean production state - all data is loaded from live Supabase Postgres tables
-  }
-      actor: 'system',
-      target: 'Oneallhost Supabase Engine',
-      timestamp: new Date().toISOString(),
-    });
   }
 
   // --- Users & Wallet ---
@@ -123,6 +141,7 @@ class SupabaseDatabaseEngine {
         balanceUsd: 0,
         balanceXaf: 0,
         autoDebitEnabled: true,
+        supportPin: Math.floor(1000 + Math.random() * 9000).toString(),
         createdAt: new Date().toISOString(),
       };
 
@@ -140,6 +159,7 @@ class SupabaseDatabaseEngine {
             auto_debit_enabled: record.autoDebitEnabled,
             two_factor_enabled: record.twoFactorEnabled,
             kyc_status: record.kycStatus,
+            support_pin: record.supportPin,
           });
         } catch (err) {
           console.error('[Supabase users.create]', err);
@@ -168,6 +188,7 @@ class SupabaseDatabaseEngine {
               autoDebitEnabled: Boolean(data.auto_debit_enabled),
               twoFactorEnabled: Boolean(data.two_factor_enabled),
               kycStatus: data.kyc_status || 'verified',
+              supportPin: data.support_pin || '0000',
               createdAt: data.created_at,
             };
             this.usersCache.set(id, mapped);
@@ -197,6 +218,7 @@ class SupabaseDatabaseEngine {
               autoDebitEnabled: Boolean(data.auto_debit_enabled),
               twoFactorEnabled: Boolean(data.two_factor_enabled),
               kycStatus: data.kyc_status || 'verified',
+              supportPin: data.support_pin || '0000',
               createdAt: data.created_at,
             };
             this.usersCache.set(mapped.id, mapped);
@@ -226,6 +248,7 @@ class SupabaseDatabaseEngine {
               autoDebitEnabled: Boolean(d.auto_debit_enabled),
               twoFactorEnabled: Boolean(d.two_factor_enabled),
               kycStatus: d.kyc_status || 'verified',
+              supportPin: d.support_pin || '0000',
               createdAt: d.created_at,
             }));
             mappedList.forEach((u) => this.usersCache.set(u.id, u));
@@ -805,8 +828,8 @@ class SupabaseDatabaseEngine {
     list: async (): Promise<WaitlistRecord[]> => {
       if (isSupabaseConfigured) {
         try {
-          const { data } = await supabase.from('hosting_waitlist').select('*').order('created_at', { ascending: false });
-          if (data) {
+          const { data } = await supabase.from('hosting_waitlist').select('*').order('created_at', { ascending: true });
+          if (data && data.length > 0) {
             return data.map((w: any) => ({
               id: w.id,
               email: w.email,
@@ -821,6 +844,102 @@ class SupabaseDatabaseEngine {
       }
       return this.waitlistCache;
     },
+  };
+
+  // --- Announcements ---
+  public announcementsRepo = {
+    setActive: async (title: string, message: string, type: 'info' | 'warning' | 'success' | 'promo'): Promise<SystemAnnouncementRecord> => {
+      const id = `ann-${Date.now()}`;
+      const record: SystemAnnouncementRecord = {
+        id,
+        title,
+        message,
+        type,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      if (isSupabaseConfigured) {
+        try {
+          // Deactivate old active ones
+          await supabase.from('system_announcements').update({ is_active: false }).eq('is_active', true);
+          await supabase.from('system_announcements').insert({
+            id: record.id,
+            title: record.title,
+            message: record.message,
+            type: record.type,
+            is_active: true,
+          });
+        } catch (err) {
+          console.error('[Supabase announcements.setActive]', err);
+        }
+      }
+
+      // Update cache
+      this.announcementsCache.forEach(a => a.isActive = false);
+      this.announcementsCache.push(record);
+
+      await this.auditLogsRepo.log('ANNOUNCEMENT_SET', 'system', `Banner set: ${title}`);
+      return record;
+    },
+
+    getActive: async (): Promise<SystemAnnouncementRecord | undefined> => {
+      if (isSupabaseConfigured) {
+        try {
+          const { data } = await supabase.from('system_announcements').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(1).maybeSingle();
+          if (data) {
+            return {
+              id: data.id,
+              title: data.title,
+              message: data.message,
+              type: data.type,
+              isActive: data.is_active,
+              createdAt: data.created_at,
+              updatedAt: data.updated_at,
+            };
+          }
+        } catch (err) {
+          console.error('[Supabase announcements.getActive]', err);
+        }
+      }
+      return this.announcementsCache.find(a => a.isActive);
+    },
+    
+    clearActive: async (): Promise<void> => {
+      if (isSupabaseConfigured) {
+        try {
+          await supabase.from('system_announcements').update({ is_active: false }).eq('is_active', true);
+        } catch (err) {}
+      }
+      this.announcementsCache.forEach(a => a.isActive = false);
+      await this.auditLogsRepo.log('ANNOUNCEMENT_CLEARED', 'system', 'Cleared active banner');
+    }
+  };
+
+  // --- Pricing Management ---
+  public pricingRepo = {
+    get: async () => {
+      if (isSupabaseConfigured) {
+        try {
+          const { data } = await supabase.from('pricing_config').select('*').eq('id', 'global-pricing-config').maybeSingle();
+          if (data) {
+            this.pricingCache = { ...this.pricingCache, ...data };
+          }
+        } catch (err) {}
+      }
+      return this.pricingCache;
+    },
+    update: async (updates: any) => {
+      this.pricingCache = { ...this.pricingCache, ...updates };
+      if (isSupabaseConfigured) {
+        try {
+          await supabase.from('pricing_config').upsert({ id: 'global-pricing-config', ...this.pricingCache });
+        } catch (err) {}
+      }
+      await this.auditLogsRepo.log('PRICING_UPDATED', 'system', 'Updated platform pricing & margins');
+      return this.pricingCache;
+    }
   };
 
   // --- Dynamic Live Compute Engine ---

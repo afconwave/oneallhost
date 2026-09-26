@@ -27,6 +27,9 @@ import {
   ArrowRight,
   Clock,
   Wallet,
+  Server,
+  Shield,
+  X,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -69,7 +72,13 @@ function CheckoutContent() {
   const { geoConfig } = useGeoCurrency();
 
   const domain = searchParams.get('domain') || 'mybusiness.com';
-  const rawAmountUsd = searchParams.get('amount') ? parseFloat(searchParams.get('amount')!) : 13.99;
+  
+  // Upsell & Pricing State
+  const [pricing, setPricing] = useState<any>({});
+  const [showUpsell, setShowUpsell] = useState<boolean>(true);
+  const [addHosting, setAddHosting] = useState<boolean>(false);
+  const [addPrivacy, setAddPrivacy] = useState<boolean>(true);
+  const [baseDomainPrice, setBaseDomainPrice] = useState<number>(13.99);
 
   // Customer info state with immediate geolocation auto-detection
   const [countryCode, setCountryCode] = useState<string>(() => {
@@ -116,6 +125,13 @@ function CheckoutContent() {
   };
   const exchangeRate = countryConfig.exchangeRate;
   const currencyCode = countryConfig.currencyCode;
+
+  const hostingPrice = pricing.hosting_starter || 4.99;
+  const privacyPrice = 2.99;
+
+  let rawAmountUsd = baseDomainPrice;
+  if (addHosting) rawAmountUsd += hostingPrice;
+  if (addPrivacy) rawAmountUsd += privacyPrice;
 
   const amountLocal = Math.round(rawAmountUsd * exchangeRate);
   const digitalChargeFee = passDigitalCharge ? Math.round(amountLocal * 0.025) : 0;
@@ -172,6 +188,21 @@ function CheckoutContent() {
       }
     }
     loadProfile();
+
+    // Load dynamic pricing
+    fetch('/api/v1/tools/pricing')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.pricing) {
+          setPricing(data.pricing);
+          const ext = domain.substring(domain.lastIndexOf('.'));
+          const domainPriceConfig = (data.pricing.domain_extensions || []).find((d: any) => d.tld === ext);
+          if (domainPriceConfig) {
+            setBaseDomainPrice(domainPriceConfig.base + domainPriceConfig.markup);
+          }
+        }
+      })
+      .catch(() => {});
   }, []);
 
   // Fetch payout methods when country changes
@@ -350,6 +381,68 @@ function CheckoutContent() {
     <div className="min-h-screen flex flex-col bg-white">
       <Header />
 
+      {/* UPSELL MODAL OVERLAY */}
+      {showUpsell && searchParams.get('domain') && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="bg-gradient-to-r from-[#0D3B85] to-[#1B6FC9] p-6 text-white text-center">
+              <h2 className="text-2xl font-bold font-display mb-2">Wait! Don't leave your domain stranded.</h2>
+              <p className="text-sm text-blue-100">Add web hosting now and get your website online instantly.</p>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              <div 
+                className={`border-2 rounded-xl p-4 cursor-pointer transition-all ${addHosting ? 'border-[#7CB342] bg-green-50' : 'border-[#EBEBE7] hover:border-blue-300'}`}
+                onClick={() => setAddHosting(!addHosting)}
+              >
+                <div className="flex items-start gap-4">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center mt-0.5 ${addHosting ? 'bg-[#7CB342] text-white' : 'bg-gray-100'}`}>
+                    {addHosting && <CheckCircle2 className="w-4 h-4" />}
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-[#111111] flex items-center gap-2">
+                      <Server className="w-4 h-4 text-[#1B6FC9]" /> Cloud Starter Hosting
+                    </h3>
+                    <p className="text-xs text-[#6B6E68] mt-1">10GB NVMe Storage, Unmetered Bandwidth, Free SSL.</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="font-bold text-[#111111]">${hostingPrice.toFixed(2)}</span><span className="text-xs text-[#6B6E68]">/mo</span>
+                  </div>
+                </div>
+              </div>
+
+              <div 
+                className={`border-2 rounded-xl p-4 cursor-pointer transition-all ${addPrivacy ? 'border-[#7CB342] bg-green-50' : 'border-[#EBEBE7] hover:border-blue-300'}`}
+                onClick={() => setAddPrivacy(!addPrivacy)}
+              >
+                <div className="flex items-start gap-4">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center mt-0.5 ${addPrivacy ? 'bg-[#7CB342] text-white' : 'bg-gray-100'}`}>
+                    {addPrivacy && <CheckCircle2 className="w-4 h-4" />}
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-[#111111] flex items-center gap-2">
+                      <Shield className="w-4 h-4 text-purple-600" /> Domain WHOIS Privacy
+                    </h3>
+                    <p className="text-xs text-[#6B6E68] mt-1">Hide your personal information from spammers.</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="font-bold text-[#111111]">${privacyPrice.toFixed(2)}</span><span className="text-xs text-[#6B6E68]">/yr</span>
+                  </div>
+                </div>
+              </div>
+
+              <Button 
+                variant="primary" 
+                className="w-full text-lg h-12 flex items-center justify-center gap-2"
+                onClick={() => setShowUpsell(false)}
+              >
+                Continue to Checkout <ArrowRight className="w-5 h-5" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <main className="flex-1 max-w-4xl mx-auto px-3 sm:px-6 py-6 sm:py-12 w-full">
         {isCompleted ? (
           <Card elevation="surface-1" className="p-8 max-w-2xl mx-auto text-center space-y-5 border-[#D6E8C2] bg-[#F3F8EC]">
@@ -447,18 +540,26 @@ function CheckoutContent() {
                 <div className="pt-3 border-t border-[#BAE6FD]/70 space-y-2 text-xs">
                   <div className="flex justify-between">
                     <span className="text-[#526B88]">Domain Price:</span>
-                    <span className="font-mono font-semibold text-[#111111]">{amountLocal.toLocaleString()} {currencyCode}</span>
+                    <span className="font-mono font-semibold text-[#111111]">${baseDomainPrice.toFixed(2)}</span>
                   </div>
+                  {addHosting && (
+                    <div className="flex justify-between text-[#0D3B85]">
+                      <span>Cloud Hosting (1 Month):</span>
+                      <span className="font-mono font-semibold">+${hostingPrice.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {addPrivacy && (
+                    <div className="flex justify-between text-purple-700">
+                      <span>WHOIS Privacy (1 Year):</span>
+                      <span className="font-mono font-semibold">+${privacyPrice.toFixed(2)}</span>
+                    </div>
+                  )}
                   {passDigitalCharge && (
                     <div className="flex justify-between text-[#526B88]">
                       <span>Processing (2.5%):</span>
                       <span className="font-mono text-[#111111]">+{digitalChargeFee.toLocaleString()} {currencyCode}</span>
                     </div>
                   )}
-                  <div className="flex justify-between text-emerald-700 font-semibold">
-                    <span>WHOIS Privacy:</span>
-                    <span>Free</span>
-                  </div>
                 </div>
 
                 <div className="pt-3 border-t border-[#BAE6FD]/70">

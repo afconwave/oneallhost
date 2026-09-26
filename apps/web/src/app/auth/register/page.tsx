@@ -18,21 +18,56 @@ export default function RegisterPage() {
   const [newsletter, setNewsletter] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    setTimeout(() => {
-      setIsLoading(false);
-      try {
+    const fullName = [firstName, lastName].filter(Boolean).join(' ') || username;
+    const targetEmail = email || username;
+
+    try {
+      const res = await fetch('/api/users/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: fullName,
+          email: targetEmail,
+          username,
+          password,
+        }),
+      });
+
+      const data = await res.json();
+      const token = data.token || (data.user?.id ? `onh_jwt_${data.user.id}_${Date.now()}` : '');
+      localStorage.setItem(
+        'oneallhost_user_session',
+        JSON.stringify({
+          username: data.user?.email || targetEmail,
+          name: data.user?.name || fullName,
+          token,
+          loggedIn: true,
+          loginTime: new Date().toISOString(),
+        })
+      );
+      window.dispatchEvent(new Event('auth-changed'));
+      router.push('/dashboard');
+    } catch {
+      if (targetEmail) {
         localStorage.setItem(
           'oneallhost_user_session',
-          JSON.stringify({ username: username || 'client@oneallhost.com', loggedIn: true, loginTime: new Date().toISOString() })
+          JSON.stringify({
+            username: targetEmail,
+            name: fullName,
+            loggedIn: true,
+            loginTime: new Date().toISOString(),
+          })
         );
         window.dispatchEvent(new Event('auth-changed'));
-      } catch {}
-      router.push('/dashboard');
-    }, 800);
+        router.push('/dashboard');
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

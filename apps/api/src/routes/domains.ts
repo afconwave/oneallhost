@@ -235,9 +235,13 @@ domainRouter.get('/whois', async (req: Request, res: Response) => {
 // 2. Register domain (Live Namecheap XML Provisioning + Real DB Storage)
 domainRouter.post('/register', async (req: Request, res: Response) => {
   try {
-    const { domainName, years = 1, userId = 'usr-1' } = req.body;
+    const { domainName, years = 1, userId } = req.body;
+    const resolvedUserId = userId || (req.headers['x-user-id'] as string);
     if (!domainName) {
       return res.status(400).json({ error: 'domainName is required' });
+    }
+    if (!resolvedUserId) {
+      return res.status(400).json({ error: 'userId is required for registration' });
     }
     
     // Provision via Namecheap XML API
@@ -246,7 +250,7 @@ domainRouter.post('/register', async (req: Request, res: Response) => {
     // Save to dynamic DB engine
     const expiryDate = new Date(Date.now() + years * 365 * 86400000).toISOString().split('T')[0];
     const newDomain = await db.domainsRepo.create({
-      userId,
+      userId: resolvedUserId,
       name: domainName.toLowerCase(),
       registrar: 'Oneallhost Enterprise Registry',
       expiresAt: expiryDate,
@@ -338,7 +342,8 @@ domainRouter.post('/:id/dns', async (req: Request, res: Response) => {
   existing.push(newRecord);
   dnsRecordsStore.set(domainId, existing);
 
-  await db.auditLogsRepo.log('DNS_RECORD_ADDED', 'usr-1', `${domainId} (${type} ${host} -> ${value})`);
+  const auditActor = (req.headers['x-user-id'] as string) || 'system';
+  await db.auditLogsRepo.log('DNS_RECORD_ADDED', auditActor, `${domainId} (${type} ${host} -> ${value})`);
 
   return res.status(201).json({ success: true, record: newRecord });
 });
@@ -352,7 +357,8 @@ domainRouter.delete('/:id/dns/:recId', async (req: Request, res: Response) => {
   const filtered = existing.filter((r) => r.id !== recId);
   dnsRecordsStore.set(domainId, filtered);
 
-  await db.auditLogsRepo.log('DNS_RECORD_DELETED', 'usr-1', `${domainId} (record ${recId})`);
+  const auditActor = (req.headers['x-user-id'] as string) || 'system';
+  await db.auditLogsRepo.log('DNS_RECORD_DELETED', auditActor, `${domainId} (record ${recId})`);
 
   return res.json({ success: true, message: 'Record deleted' });
 });
@@ -377,6 +383,7 @@ domainRouter.put('/:id/lock', async (req: Request, res: Response) => {
 domainRouter.post('/:id/epp', async (req: Request, res: Response) => {
   const domainId = String(req.params.id);
   const authCode = `ONH-EPP-${Math.random().toString(36).substring(2, 10).toUpperCase()}-2026`;
-  await db.auditLogsRepo.log('EPP_CODE_GENERATED', 'usr-1', `Domain ${domainId}`);
+  const auditActor = (req.headers['x-user-id'] as string) || 'system';
+  await db.auditLogsRepo.log('EPP_CODE_GENERATED', auditActor, `Domain ${domainId}`);
   return res.json({ success: true, domainId, authCode, validHours: 72 });
 });

@@ -71,24 +71,31 @@ userRouter.post('/login', async (req: Request, res: Response) => {
   });
 });
 
-// 3. Get Current User Profile
-userRouter.get('/me', async (req: Request, res: Response) => {
+const resolveUser = async (req: Request) => {
   const authHeader = req.headers.authorization;
-  let targetUser = null;
-
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.replace('Bearer ', '').trim();
     const match = token.match(/^onh_jwt_(usr-[a-zA-Z0-9_-]+)/);
     const userId = match ? match[1] : null;
     if (userId) {
-      targetUser = await db.usersRepo.findById(userId);
+      const user = await db.usersRepo.findById(userId);
+      if (user) return user;
     }
   }
 
-  // Graceful fallback to primary account owner if no token or unauthenticated guest
-  if (!targetUser) {
-    targetUser = (await db.usersRepo.findById('usr-1')) || (await db.usersRepo.list())[0];
+  const headerUserId = (req.headers['x-user-id'] as string) || (req.query.userId as string);
+  if (headerUserId) {
+    const user = await db.usersRepo.findById(headerUserId);
+    if (user) return user;
   }
+
+  const users = await db.usersRepo.list();
+  return users.length > 0 ? users[0] : null;
+};
+
+// 3. Get Current User Profile
+userRouter.get('/me', async (req: Request, res: Response) => {
+  const targetUser = await resolveUser(req);
 
   if (!targetUser) {
     return res.status(404).json({ success: false, error: 'User profile not found', user: null });
@@ -100,7 +107,7 @@ userRouter.get('/me', async (req: Request, res: Response) => {
 // 4. Update Profile
 userRouter.put('/me', async (req: Request, res: Response) => {
   const { name, phone, preferredCurrency } = req.body;
-  const user = (await db.usersRepo.findById('usr-1')) || (await db.usersRepo.list())[0];
+  const user = await resolveUser(req);
   if (!user) return res.status(404).json({ error: 'User not found' });
 
   const updated = await db.usersRepo.update(user.id, {
@@ -114,7 +121,7 @@ userRouter.put('/me', async (req: Request, res: Response) => {
 
 // 5. Toggle / Enable 2FA TOTP
 userRouter.post('/2fa/enable', async (req: Request, res: Response) => {
-  const user = (await db.usersRepo.findById('usr-1')) || (await db.usersRepo.list())[0];
+  const user = await resolveUser(req);
   if (!user) return res.status(404).json({ error: 'User not found' });
 
   await db.usersRepo.update(user.id, { twoFactorEnabled: true });
@@ -130,7 +137,7 @@ userRouter.post('/2fa/enable', async (req: Request, res: Response) => {
 
 // 6. Get User Registered Domains
 userRouter.get('/domains', async (req: Request, res: Response) => {
-  const user = (await db.usersRepo.findById('usr-1')) || (await db.usersRepo.list())[0];
+  const user = await resolveUser(req);
   const domains = await db.domainsRepo.list(user?.id);
   return res.json({
     success: true,
@@ -140,7 +147,7 @@ userRouter.get('/domains', async (req: Request, res: Response) => {
 
 // 7. Get User Subdomain Leases
 userRouter.get('/rentals', async (req: Request, res: Response) => {
-  const user = (await db.usersRepo.findById('usr-1')) || (await db.usersRepo.list())[0];
+  const user = await resolveUser(req);
   const rentals = await db.rentalsRepo.list(user?.id);
   return res.json({
     success: true,
@@ -150,7 +157,7 @@ userRouter.get('/rentals', async (req: Request, res: Response) => {
 
 // 8. Get User Invoices / Payments
 userRouter.get('/invoices', async (req: Request, res: Response) => {
-  const user = (await db.usersRepo.findById('usr-1')) || (await db.usersRepo.list())[0];
+  const user = await resolveUser(req);
   const payments = await db.paymentsRepo.list(user?.id);
   return res.json({
     success: true,
@@ -160,7 +167,7 @@ userRouter.get('/invoices', async (req: Request, res: Response) => {
 
 // 9. Get User Notifications
 userRouter.get('/notifications', async (req: Request, res: Response) => {
-  const user = (await db.usersRepo.findById('usr-1')) || (await db.usersRepo.list())[0];
+  const user = await resolveUser(req);
   const userPayments = await db.paymentsRepo.list(user?.id);
   
   const computedNotifications = userPayments.slice(0, 5).map((p, idx) => ({
@@ -181,7 +188,7 @@ userRouter.get('/notifications', async (req: Request, res: Response) => {
 // 10. Top-Up Wallet Balance
 userRouter.post('/wallet/topup', async (req: Request, res: Response) => {
   const { amountUsd, amountXaf, paymentMethod = 'MTN Mobile Money', reference } = req.body;
-  const user = (await db.usersRepo.findById('usr-1')) || (await db.usersRepo.list())[0];
+  const user = await resolveUser(req);
   if (!user) return res.status(404).json({ error: 'User not found' });
 
   const numUsd = Number(amountUsd);
@@ -216,7 +223,7 @@ userRouter.post('/wallet/topup', async (req: Request, res: Response) => {
 // 11. Pay using Account Balance
 userRouter.post('/wallet/pay', async (req: Request, res: Response) => {
   const { amountUsd, item = 'Domain Registration', reference } = req.body;
-  const user = (await db.usersRepo.findById('usr-1')) || (await db.usersRepo.list())[0];
+  const user = await resolveUser(req);
   if (!user) return res.status(404).json({ error: 'User not found' });
 
   const numUsd = Number(amountUsd);
@@ -259,7 +266,7 @@ userRouter.post('/wallet/pay', async (req: Request, res: Response) => {
 // 12. Toggle / Update Auto-Debit Setting
 userRouter.put('/wallet/auto-debit', async (req: Request, res: Response) => {
   const { enabled } = req.body;
-  const user = (await db.usersRepo.findById('usr-1')) || (await db.usersRepo.list())[0];
+  const user = await resolveUser(req);
   if (!user) return res.status(404).json({ error: 'User not found' });
 
   const isEnabled = Boolean(enabled);
@@ -272,3 +279,4 @@ userRouter.put('/wallet/auto-debit', async (req: Request, res: Response) => {
     user: updated,
   });
 });
+

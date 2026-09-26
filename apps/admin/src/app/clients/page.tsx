@@ -1,70 +1,62 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Card, Badge, Button, Input, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, toast } from '@oneallhost/ui';
-import { Users, Search, ShieldCheck, ShieldAlert, UserCheck, Eye } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Badge, Button, Input, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, toast } from '@oneallhost/ui';
+import { Users, Eye } from 'lucide-react';
 
 export default function AdminClientsPage() {
-  const [clients, setClients] = useState([
-    {
-      id: 'usr-1',
-      name: 'Altonixa Enterprise',
-      email: 'client@altonixa.com',
-      phone: '+237 671 223 419',
-      country: 'Cameroon',
-      role: 'client',
-      kyc: 'verified',
-      domainsCount: 3,
-      rentalsCount: 2,
-      totalSpent: '$64.97',
-    },
-    {
-      id: 'usr-2',
-      name: 'Douala Media Agency',
-      email: 'agency@douala.cm',
-      phone: '+237 690 441 882',
-      country: 'Cameroon',
-      role: 'client',
-      kyc: 'verified',
-      domainsCount: 5,
-      rentalsCount: 4,
-      totalSpent: '$148.50',
-    },
-    {
-      id: 'usr-3',
-      name: 'Crypto Fintech Ltd',
-      email: 'ops@fintech.io',
-      phone: '+1 415 555 0192',
-      country: 'International',
-      role: 'client',
-      kyc: 'pending',
-      domainsCount: 1,
-      rentalsCount: 0,
-      totalSpent: '$89.99',
-    },
-  ]);
-
+  const [clients, setClients] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Impersonation Gate State
+  const [impersonateClient, setImpersonateClient] = useState<any>(null);
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState('');
 
-  const handleImpersonate = (clientName: string, clientEmail: string) => {
-    toast.warning(`Support impersonation session started for ${clientName} (${clientEmail}).`, {
-      action: {
-        label: 'View Audit Log',
-        onClick: () => console.log('Opening audit log...'),
-      }
-    });
+  const fetchClients = () => {
+    setIsLoading(true);
+    fetch('/api/admin/clients')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && Array.isArray(data.clients)) {
+          setClients(data.clients);
+        }
+      })
+      .catch((err) => console.error('[Admin Clients Fetch Error]', err))
+      .finally(() => setIsLoading(false));
+  };
+
+  useEffect(() => {
+    fetchClients();
+  }, []);
+
+  const handleImpersonateClick = (client: any) => {
+    setImpersonateClient(client);
+    setPinInput('');
+    setPinError('');
+  };
+
+  const confirmImpersonate = () => {
+    if (pinInput === impersonateClient.supportPin) {
+      toast.success(`Access Granted! Impersonation session started for ${impersonateClient.name} (${impersonateClient.email}).`);
+      setImpersonateClient(null);
+    } else {
+      setPinError('Invalid Support PIN. Access Denied.');
+    }
   };
 
   const handleVerifyKyc = (id: string) => {
     setClients((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, kyc: 'verified' } : c))
+      prev.map((c) => (c.id === id ? { ...c, kycStatus: 'verified' } : c))
     );
+    toast.success(`KYC status verified for client ${id}`);
   };
 
   const filtered = clients.filter(
     (c) =>
-      c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.email.toLowerCase().includes(searchTerm.toLowerCase())
+      c.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -93,7 +85,7 @@ export default function AdminClientsPage() {
             <TableHead>Country / Phone</TableHead>
             <TableHead>KYC Status</TableHead>
             <TableHead>Portfolio</TableHead>
-            <TableHead>Total Spent</TableHead>
+            <TableHead>Wallet Balance</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -105,24 +97,24 @@ export default function AdminClientsPage() {
                 <div className="font-mono text-[11px] text-[#6B6E68]">{client.email}</div>
               </TableCell>
               <TableCell>
-                <div className="text-xs text-[#111111]">{client.country}</div>
-                <div className="font-mono text-[11px] text-[#6B6E68]">{client.phone}</div>
+                <div className="text-xs text-[#111111]">{client.countryCode || 'CM'}</div>
+                <div className="font-mono text-[11px] text-[#6B6E68]">{client.phone || 'N/A'}</div>
               </TableCell>
               <TableCell>
-                {client.kyc === 'verified' ? (
+                {client.kycStatus === 'verified' ? (
                   <Badge variant="success">Verified</Badge>
                 ) : (
                   <Badge variant="warning">Pending Review</Badge>
                 )}
               </TableCell>
               <TableCell className="text-xs text-[#6B6E68]">
-                {client.domainsCount} domains • {client.rentalsCount} rentals
+                {client.domainsCount || 0} domains • {client.rentalsCount || 0} rentals
               </TableCell>
               <TableCell className="font-mono text-xs font-medium text-[#111111]">
-                {client.totalSpent}
+                ${Number(client.balanceUsd || 0).toFixed(2)} USD
               </TableCell>
               <TableCell className="text-right space-x-2">
-                {client.kyc === 'pending' && (
+                {client.kycStatus === 'pending' && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -136,7 +128,7 @@ export default function AdminClientsPage() {
                   variant="outline"
                   size="sm"
                   className="text-xs gap-1"
-                  onClick={() => handleImpersonate(client.name, client.email)}
+                  onClick={() => handleImpersonateClick(client)}
                 >
                   <Eye className="w-3 h-3" />
                   <span>Impersonate</span>
@@ -144,8 +136,48 @@ export default function AdminClientsPage() {
               </TableCell>
             </TableRow>
           ))}
+          {filtered.length === 0 && !isLoading && (
+            <TableRow>
+              <TableCell colSpan={6} className="text-center py-8 text-xs text-[#6B6E68]">
+                No registered clients found matching the search query.
+              </TableCell>
+            </TableRow>
+          )}
         </TableBody>
       </Table>
+
+      {/* Support PIN Unlock Gate Modal */}
+      {impersonateClient && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white p-6 rounded-2xl w-full max-w-md shadow-2xl border border-[#EBEBE7]">
+            <h3 className="text-lg font-bold text-[#111111] mb-2 flex items-center gap-2">
+              <Eye className="w-5 h-5 text-[#0D3B85]" /> Account Locked
+            </h3>
+            <p className="text-sm text-[#6B6E68] mb-4">
+              To impersonate <span className="font-bold text-[#111111]">{impersonateClient.name}</span>, you must request their 4-digit Support PIN.
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-[#111111] block mb-1">Enter Support PIN</label>
+                <Input
+                  placeholder="e.g. 1234"
+                  value={pinInput}
+                  onChange={(e) => {
+                    setPinInput(e.target.value);
+                    setPinError('');
+                  }}
+                  className="font-mono text-center tracking-[0.5em] text-lg"
+                />
+                {pinError && <p className="text-xs text-red-600 font-bold mt-2">{pinError}</p>}
+              </div>
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <Button variant="outline" size="sm" onClick={() => setImpersonateClient(null)}>Cancel</Button>
+                <Button variant="primary" size="sm" onClick={confirmImpersonate} className="bg-[#0D3B85] hover:bg-[#1B6FC9]">Unlock Account</Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -6,6 +6,14 @@ const nextConfig = {
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
   },
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: 'http://localhost:4000/api/v1/:path*',
+      },
+    ];
+  },
 };
 
 export default nextConfig;

@@ -79,3 +79,29 @@ adminRouter.get('/audit-logs', async (req: Request, res: Response) => {
     logs,
   });
 });
+
+// 8. System Announcements
+adminRouter.post('/announcements', async (req: Request, res: Response) => {
+  const { title, message, type } = req.body;
+  if (!title || !message) {
+    return res.status(400).json({ success: false, error: 'Title and message are required' });
+  }
+  const record = await db.announcementsRepo.setActive(title, message, type || 'info');
+  return res.json({ success: true, announcement: record });
+});
+
+adminRouter.delete('/announcements/active', async (req: Request, res: Response) => {
+  await db.announcementsRepo.clearActive();
+  return res.json({ success: true });
+});
+
+// 9. Pricing & Margins
+adminRouter.get('/pricing', async (req: Request, res: Response) => {
+  const pricing = await db.pricingRepo.get();
+  return res.json({ success: true, pricing });
+});
+
+adminRouter.put('/pricing', async (req: Request, res: Response) => {
+  const updated = await db.pricingRepo.update(req.body);
+  return res.json({ success: true, pricing: updated });
+});

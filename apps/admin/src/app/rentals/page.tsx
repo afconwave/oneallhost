@@ -1,46 +1,38 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Card, Badge, Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, toast } from '@oneallhost/ui';
-import { Repeat, Clock, AlertTriangle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Badge, Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, toast } from '@oneallhost/ui';
 
 export default function AdminRentalsPage() {
-  const [rentals, setRentals] = useState([
-    {
-      id: 'rent-1',
-      subdomain: 'event2026.oah.link',
-      renter: 'client@altonixa.com',
-      startedAt: '2026-08-18',
-      endsAt: '2026-08-25',
-      price: '$7.99',
-      status: 'active',
-      hoursLeft: 44,
-    },
-    {
-      id: 'rent-2',
-      subdomain: 'promo-tech.oah.link',
-      renter: 'agency@douala.cm',
-      startedAt: '2026-08-01',
-      endsAt: '2026-08-31',
-      price: '$24.99',
-      status: 'active',
-      hoursLeft: 188,
-    },
-  ]);
+  const [rentals, setRentals] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchRentals = () => {
+    setIsLoading(true);
+    fetch('/api/admin/rentals')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && Array.isArray(data.rentals)) {
+          setRentals(data.rentals);
+        }
+      })
+      .catch((err) => console.error('[Admin Rentals Fetch Error]', err))
+      .finally(() => setIsLoading(false));
+  };
+
+  useEffect(() => {
+    fetchRentals();
+  }, []);
 
   const handleForceExpireRental = (id: string) => {
     setRentals((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: 'expired', hoursLeft: 0 } : r))
+      prev.map((r) => (r.id === id ? { ...r, status: 'expired' } : r))
     );
+    toast.warning(`Rental ${id} expired.`);
   };
 
-  const handleIssueRefund = (id: string, price: string) => {
-    toast.success(`Refund & Credit Note issued for rental ${id} (${price}).`, {
-      action: {
-        label: 'View Ledger',
-        onClick: () => alert('Ledger modal opened'), // For demo, actionable!
-      }
-    });
+  const handleIssueRefund = (id: string, price: number) => {
+    toast.success(`Refund & Credit Note issued for rental ${id} ($${price}).`);
   };
 
   return (
@@ -56,8 +48,8 @@ export default function AdminRentalsPage() {
         <TableHeader>
           <TableRow>
             <TableHead>Subdomain / URL</TableHead>
-            <TableHead>Renter Email</TableHead>
-            <TableHead>Time Remaining</TableHead>
+            <TableHead>Client</TableHead>
+            <TableHead>Expires</TableHead>
             <TableHead>Price Paid</TableHead>
             <TableHead>Status</TableHead>
             <TableHead className="text-right">Actions</TableHead>
@@ -70,17 +62,19 @@ export default function AdminRentalsPage() {
                 {r.subdomain}
               </TableCell>
               <TableCell className="font-mono text-xs text-[#6B6E68]">
-                {r.renter}
+                {r.clientName || r.userId}
               </TableCell>
               <TableCell className="font-mono text-xs text-[#0D3B85]">
-                {r.hoursLeft > 0 ? `${r.hoursLeft}h remaining` : 'Expired'}
+                {r.expiresAt ? new Date(r.expiresAt).toLocaleDateString() : 'N/A'}
               </TableCell>
               <TableCell className="font-mono text-xs text-[#111111]">
-                {r.price}
+                ${Number(r.priceUsd || 0).toFixed(2)} USD
               </TableCell>
               <TableCell>
                 {r.status === 'active' ? (
                   <Badge variant="success">Active</Badge>
+                ) : r.status === 'converted_to_purchase' ? (
+                  <Badge variant="info">Purchased Domain</Badge>
                 ) : (
                   <Badge variant="neutral">Expired</Badge>
                 )}
@@ -90,21 +84,30 @@ export default function AdminRentalsPage() {
                   variant="outline"
                   size="sm"
                   className="text-xs"
-                  onClick={() => handleIssueRefund(r.id, r.price)}
+                  onClick={() => handleIssueRefund(r.id, r.priceUsd)}
                 >
                   Refund & Credit
                 </Button>
-                <Button
-                  variant="danger"
-                  size="sm"
-                  className="text-xs"
-                  onClick={() => handleForceExpireRental(r.id)}
-                >
-                  Force Expire
-                </Button>
+                {r.status === 'active' && (
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    className="text-xs"
+                    onClick={() => handleForceExpireRental(r.id)}
+                  >
+                    Force Expire
+                  </Button>
+                )}
               </TableCell>
             </TableRow>
           ))}
+          {rentals.length === 0 && !isLoading && (
+            <TableRow>
+              <TableCell colSpan={6} className="text-center py-8 text-xs text-[#6B6E68]">
+                No subdomain staging leases active.
+              </TableCell>
+            </TableRow>
+          )}
         </TableBody>
       </Table>
     </div>

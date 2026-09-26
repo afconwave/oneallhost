@@ -1,53 +1,50 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Card, Badge, Button, Input, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, toast } from '@oneallhost/ui';
-import { Globe, RefreshCw, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Badge, Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell, toast } from '@oneallhost/ui';
+import { RefreshCw } from 'lucide-react';
 
 export default function AdminDomainsPage() {
-  const [domains, setDomains] = useState([
-    {
-      id: 'dom-1',
-      name: 'altonixa-tech.com',
-      owner: 'client@altonixa.com',
-      regId: 'RC-9821034-ALX',
-      expiresAt: '2026-09-15',
-      status: 'active',
-      autoRenew: true,
-    },
-    {
-      id: 'dom-2',
-      name: '360class.cm',
-      owner: 'client@altonixa.com',
-      regId: 'RC-9821099-360',
-      expiresAt: '2026-11-20',
-      status: 'active',
-      autoRenew: true,
-    },
-    {
-      id: 'dom-3',
-      name: 'douala-event.cm',
-      owner: 'agency@douala.cm',
-      regId: 'RC-9821150-DLA',
-      expiresAt: '2026-09-01',
-      status: 'expiring_soon',
-      autoRenew: false,
-    },
-  ]);
+  const [domains, setDomains] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleManualRenew = (id: string) => {
-    toast.success(`Sent upstream renew command to ResellerClub API for ${id}.`, {
-      action: {
-        label: 'View Domain',
-        onClick: () => console.log('Opening domain details...'),
-      }
-    });
+  const fetchDomains = () => {
+    setIsLoading(true);
+    fetch('/api/admin/domains')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && Array.isArray(data.domains)) {
+          setDomains(data.domains);
+        }
+      })
+      .catch((err) => console.error('[Admin Domains Fetch Error]', err))
+      .finally(() => setIsLoading(false));
   };
 
-  const handleForceExpire = (id: string) => {
-    setDomains((prev) =>
-      prev.map((d) => (d.id === id ? { ...d, status: 'expired' } : d))
-    );
+  useEffect(() => {
+    fetchDomains();
+  }, []);
+
+  const handleManualRenew = (domainName: string) => {
+    toast.success(`Sent upstream renew command to Namecheap/Registry for ${domainName}.`);
+  };
+
+  const handleSuspendDomain = async (id: string) => {
+    try {
+      const res = await fetch(`/api/admin/domains/${id}/suspend`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: 'Administrative suspension' }),
+      });
+      if (res.ok) {
+        setDomains((prev) =>
+          prev.map((d) => (d.id === id ? { ...d, status: 'suspended' } : d))
+        );
+        toast.warning(`Domain ${id} flagged as suspended.`);
+      }
+    } catch (err) {
+      toast.error('Failed to suspend domain');
+    }
   };
 
   return (
@@ -56,13 +53,13 @@ export default function AdminDomainsPage() {
         <div>
           <h1 className="text-xl font-medium text-[#111111]">Global Domain Inventory</h1>
           <p className="text-xs text-[#6B6E68] mt-0.5">
-            Full registry portfolio under management with override actions (manual renew, force-expire).
+            Full registry portfolio under management with override actions (manual renew, suspend).
           </p>
         </div>
 
-        <Button variant="outline" size="sm" className="gap-1.5">
+        <Button variant="outline" size="sm" className="gap-1.5" onClick={fetchDomains}>
           <RefreshCw className="w-3.5 h-3.5" />
-          <span>Sync ResellerClub registry</span>
+          <span>Refresh Domains</span>
         </Button>
       </div>
 
@@ -70,8 +67,8 @@ export default function AdminDomainsPage() {
         <TableHeader>
           <TableRow>
             <TableHead>Domain Name</TableHead>
-            <TableHead>Registrar Ref ID</TableHead>
-            <TableHead>Owner Email</TableHead>
+            <TableHead>Registrar</TableHead>
+            <TableHead>Registered</TableHead>
             <TableHead>Expiry Date</TableHead>
             <TableHead>Status</TableHead>
             <TableHead className="text-right">Overrides</TableHead>
@@ -84,10 +81,10 @@ export default function AdminDomainsPage() {
                 {dom.name}
               </TableCell>
               <TableCell className="font-mono text-xs text-[#6B6E68]">
-                {dom.regId}
+                {dom.registrar || 'Oneallhost Enterprise Registry'}
               </TableCell>
-              <TableCell className="font-mono text-xs text-[#1B6FC9]">
-                {dom.owner}
+              <TableCell className="font-mono text-xs text-[#6B6E68]">
+                {dom.registeredAt || 'N/A'}
               </TableCell>
               <TableCell className="font-mono text-xs text-[#111111]">
                 {dom.expiresAt}
@@ -98,7 +95,7 @@ export default function AdminDomainsPage() {
                 ) : dom.status === 'expiring_soon' ? (
                   <Badge variant="warning">Expiring Soon</Badge>
                 ) : (
-                  <Badge variant="danger">Expired</Badge>
+                  <Badge variant="danger">Suspended</Badge>
                 )}
               </TableCell>
               <TableCell className="text-right space-x-2">
@@ -110,17 +107,26 @@ export default function AdminDomainsPage() {
                 >
                   Manual Renew
                 </Button>
-                <Button
-                  variant="danger"
-                  size="sm"
-                  className="text-xs"
-                  onClick={() => handleForceExpire(dom.id)}
-                >
-                  Force Expire
-                </Button>
+                {dom.status !== 'suspended' && (
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    className="text-xs"
+                    onClick={() => handleSuspendDomain(dom.id)}
+                  >
+                    Suspend
+                  </Button>
+                )}
               </TableCell>
             </TableRow>
           ))}
+          {domains.length === 0 && !isLoading && (
+            <TableRow>
+              <TableCell colSpan={6} className="text-center py-8 text-xs text-[#6B6E68]">
+                No registered domains found in database.
+              </TableCell>
+            </TableRow>
+          )}
         </TableBody>
       </Table>
     </div>

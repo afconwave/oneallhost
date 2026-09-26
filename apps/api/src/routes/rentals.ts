@@ -21,10 +21,14 @@ rentalRouter.get('/', async (req: Request, res: Response) => {
 // 1. Create short-term subdomain lease (24h/72h/7d/30d) (§4 / §8b)
 rentalRouter.post('/create', async (req: Request, res: Response) => {
   try {
-    const { subdomain, baseDomain = 'oah.link', renterId = 'usr-1', durationType = 'day', durationValue = 7, targetUrl } = req.body;
+    const { subdomain, baseDomain = 'oah.link', renterId, clientName, durationType = 'day', durationValue = 7, targetUrl } = req.body;
+    const resolvedRenterId = renterId || (req.headers['x-user-id'] as string);
     
     if (!subdomain) {
       return res.status(400).json({ error: 'Subdomain name is required' });
+    }
+    if (!resolvedRenterId) {
+      return res.status(400).json({ error: 'User ID is required to create a lease' });
     }
 
     const fullDomain = `${subdomain}.${baseDomain}`;
@@ -41,17 +45,17 @@ rentalRouter.post('/create', async (req: Request, res: Response) => {
     endTime.setDate(endTime.getDate() + Number(durationValue));
 
     const newRental = await db.rentalsRepo.create({
-      userId: renterId,
+      userId: resolvedRenterId,
       subdomain: fullDomain,
       targetDomain: fullDomain,
-      clientName: 'Account Owner',
+      clientName: clientName || 'Client',
       durationHours: Number(durationValue) * 24,
       durationType,
       durationValue: Number(durationValue),
       priceUsd,
       rebateCreditUsd: priceUsd,
       status: 'active',
-      targetUrl: targetUrl || 'https://default.oneallhost.com',
+      targetUrl: targetUrl || `https://${fullDomain}`,
       expiresAt: endTime.toISOString(),
     });
 

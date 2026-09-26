@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { BrandLogo, Badge, Toaster } from '@oneallhost/ui';
@@ -14,22 +14,30 @@ import {
   Activity,
   ShieldCheck,
   FileText,
+  Megaphone,
+  DollarSign,
 } from 'lucide-react';
 import './globals.css';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
-  const navItems = [
-    { label: 'Overview', href: '/', icon: LayoutDashboard },
-    { label: 'Clients & KYC', href: '/clients', icon: Users },
-    { label: 'Domain Registry', href: '/domains', icon: Globe },
-    { label: 'Subdomain Rentals', href: '/rentals', icon: Clock },
-    { label: 'Hosting Waitlist', href: '/hosting', icon: Server },
-    { label: 'Payments & Reconciliation', href: '/payments', icon: CreditCard },
-    { label: 'Audit Logs', href: '/audit-logs', icon: FileText },
-    { label: 'System Health', href: '/health', icon: Activity },
+  const [currentRole, setCurrentRole] = useState<'super_admin' | 'hosting_assistant' | 'domain_assistant' | 'billing_assistant' | 'support_agent'>('super_admin');
+
+  const allNavItems = [
+    { label: 'Overview', href: '/', icon: LayoutDashboard, roles: ['super_admin'] },
+    { label: 'Clients & KYC', href: '/clients', icon: Users, roles: ['super_admin', 'support_agent', 'billing_assistant'] },
+    { label: 'Domain Registry', href: '/domains', icon: Globe, roles: ['super_admin', 'domain_assistant', 'support_agent'] },
+    { label: 'Subdomain Rentals', href: '/rentals', icon: Clock, roles: ['super_admin', 'domain_assistant', 'hosting_assistant'] },
+    { label: 'Hosting Waitlist', href: '/hosting', icon: Server, roles: ['super_admin', 'hosting_assistant', 'support_agent'] },
+    { label: 'Pricing & Margins', href: '/pricing', icon: DollarSign, roles: ['super_admin', 'billing_assistant'] },
+    { label: 'Payments & Reconciliation', href: '/payments', icon: CreditCard, roles: ['super_admin', 'billing_assistant'] },
+    { label: 'Marketing & Promos', href: '/announcements', icon: Megaphone, roles: ['super_admin'] },
+    { label: 'Audit Logs', href: '/audit-logs', icon: FileText, roles: ['super_admin'] },
+    { label: 'System Health', href: '/health', icon: Activity, roles: ['super_admin'] },
   ];
+
+  const navItems = allNavItems.filter(item => item.roles.includes(currentRole));
 
   return (
     <html lang="en">
@@ -53,8 +61,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </div>
 
             <div className="flex items-center gap-3 text-xs">
-              <span className="text-blue-200">Operator:</span>
-              <span className="text-white font-semibold">admin@oneallhost.com</span>
+              <span className="text-blue-200">Role:</span>
+              <select
+                value={currentRole}
+                onChange={(e) => setCurrentRole(e.target.value as any)}
+                className="bg-[#08214D] text-white border border-blue-500/30 rounded px-2 py-1 outline-none text-xs font-semibold focus:border-blue-400"
+              >
+                <option value="super_admin">Super Admin</option>
+                <option value="hosting_assistant">Hosting Assistant</option>
+                <option value="domain_assistant">Domain Assistant</option>
+                <option value="billing_assistant">Billing Assistant</option>
+                <option value="support_agent">Support Agent</option>
+              </select>
+              <span className="text-white font-semibold ml-2">admin@oneallhost.com</span>
               <div className="w-2.5 h-2.5 rounded-full bg-[#7CB342] animate-pulse" />
             </div>
           </header>

@@ -43,6 +43,9 @@ export default function DashboardLayout({
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<{ name: string; email: string } | null>(null);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  
+  const [announcement, setAnnouncement] = useState<{ id: string; title: string; message: string; type: string } | null>(null);
+  const [bannerDismissed, setBannerDismissed] = useState(true);
 
   useEffect(() => {
     async function loadUser() {
@@ -60,8 +63,8 @@ export default function DashboardLayout({
         }
 
         setCurrentUser({
-          name: parsed.name || parsed.username?.split('@')[0] || 'Account Owner',
-          email: parsed.username || 'client@oneallhost.com',
+          name: parsed.name || parsed.username?.split('@')[0] || 'User',
+          email: parsed.email || parsed.username || '',
         });
 
         if (parsed.token) {
@@ -81,7 +84,28 @@ export default function DashboardLayout({
       }
     }
     loadUser();
+
+    // Fetch active announcement
+    fetch('/api/v1/tools/announcements/active')
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.success && data.announcement) {
+          const dismissedId = localStorage.getItem('oneallhost_dismissed_announcement');
+          if (dismissedId !== data.announcement.id) {
+            setAnnouncement(data.announcement);
+            setBannerDismissed(false);
+          }
+        }
+      })
+      .catch(() => {});
   }, [pathname, router]);
+
+  const handleDismissBanner = () => {
+    if (announcement) {
+      localStorage.setItem('oneallhost_dismissed_announcement', announcement.id);
+    }
+    setBannerDismissed(true);
+  };
 
   const handleSignOut = () => {
     try {
@@ -92,15 +116,15 @@ export default function DashboardLayout({
     router.push('/');
   };
 
-  const displayName = currentUser?.name || 'Account Owner';
-  const displayEmail = currentUser?.email || 'client@oneallhost.com';
+  const displayName = currentUser?.name || 'User';
+  const displayEmail = currentUser?.email || '';
   const initials = displayName
     .split(' ')
     .map((n) => n[0])
     .filter(Boolean)
     .slice(0, 2)
     .join('')
-    .toUpperCase() || 'OH';
+    .toUpperCase() || 'U';
 
   if (isCheckingAuth) {
     return (
@@ -115,6 +139,25 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-[#F5F5F3] font-sans flex flex-col text-[#111111]">
+      
+      {/* GLOBAL SYSTEM ANNOUNCEMENT BANNER */}
+      {!bannerDismissed && announcement && (
+        <div className={`w-full py-2 px-4 flex items-center justify-between text-white text-xs font-semibold ${
+          announcement.type === 'warning' ? 'bg-amber-600' :
+          announcement.type === 'success' ? 'bg-[#7CB342]' :
+          announcement.type === 'promo' ? 'bg-purple-600' :
+          'bg-[#0D3B85]'
+        }`}>
+          <div className="flex items-center gap-2 max-w-7xl mx-auto flex-1 px-3 sm:px-6 lg:px-8">
+            <span className="bg-white/20 px-2 py-0.5 rounded text-[10px] uppercase tracking-wider">{announcement.title}</span>
+            <span>{announcement.message}</span>
+          </div>
+          <button onClick={handleDismissBanner} className="p-1 hover:bg-white/20 rounded ml-2 shrink-0">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* TOP AUXILIARY DASHBOARD HEADER */}
       <header className="sticky top-0 z-40 bg-white border-b border-[#EBEBE7] shadow-xs">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3 sm:gap-4">

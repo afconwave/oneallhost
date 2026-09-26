@@ -100,9 +100,11 @@ paymentRouter.post('/create-direct-payment', async (req: Request, res: Response)
     const computedUsd = Number((Number(amount) / rate).toFixed(2));
     const computedXaf = Math.round(computedUsd * 615.5);
 
+    const resolvedUserId = (req.body.userId as string) || (req.headers['x-user-id'] as string) || 'guest';
+
     // Record into live database state as pending
     await db.paymentsRepo.create({
-      userId: 'usr-1',
+      userId: resolvedUserId,
       client: name,
       method: payment_method || 'MTN Mobile Money',
       amountUsd: computedUsd,
@@ -173,10 +175,21 @@ paymentRouter.post('/webhook', async (req: Request, res: Response) => {
   }
 });
 
+// Helper for resolving active user id
+const resolveUserId = (req: Request): string => {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.replace('Bearer ', '').trim();
+    const match = token.match(/^onh_jwt_(usr-[a-zA-Z0-9_-]+)/);
+    if (match) return match[1];
+  }
+  return (req.headers['x-user-id'] as string) || (req.query.userId as string) || (req.body?.userId as string) || '';
+};
+
 // 4. Get Saved Payment Methods
 paymentRouter.get('/methods', async (req: Request, res: Response) => {
-  const userId = (req.query.userId as string) || 'usr-1';
-  const methods = await db.paymentMethodsRepo.list(userId);
+  const userId = resolveUserId(req);
+  const methods = userId ? await db.paymentMethodsRepo.list(userId) : [];
   return res.json({
     success: true,
     methods,
@@ -186,13 +199,17 @@ paymentRouter.get('/methods', async (req: Request, res: Response) => {
 // 5. Add / Save New Payment Card
 paymentRouter.post('/methods', async (req: Request, res: Response) => {
   try {
+    const userId = resolveUserId(req);
+    if (!userId) {
+      return res.status(401).json({ error: 'Authentication required to save payment method' });
+    }
+
     const {
       cardNumber,
-      cardHolder = 'Account Owner',
+      cardHolder = 'Card Holder',
       expiry = '12/28',
       brand,
       isDefault = false,
-      userId = 'usr-1',
     } = req.body;
 
     if (!cardNumber) {
@@ -234,7 +251,7 @@ paymentRouter.post('/methods', async (req: Request, res: Response) => {
 // 6. Delete / Remove Saved Payment Method
 paymentRouter.delete('/methods/:id', async (req: Request, res: Response) => {
   const { id } = req.params;
-  const userId = (req.query.userId as string) || 'usr-1';
+  const userId = resolveUserId(req);
   const success = await db.paymentMethodsRepo.delete(id, userId);
 
   if (!success) {
@@ -250,7 +267,7 @@ paymentRouter.delete('/methods/:id', async (req: Request, res: Response) => {
 // 7. Set Default Payment Method
 paymentRouter.put('/methods/:id/default', async (req: Request, res: Response) => {
   const { id } = req.params;
-  const userId = (req.query.userId as string) || 'usr-1';
+  const userId = resolveUserId(req);
   const updated = await db.paymentMethodsRepo.setDefault(id, userId);
 
   if (!updated) {

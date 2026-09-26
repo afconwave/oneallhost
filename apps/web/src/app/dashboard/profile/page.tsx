@@ -13,6 +13,7 @@ interface UserProfile {
   preferredCurrency: 'USD' | 'XAF';
   twoFactorEnabled: boolean;
   kycStatus: string;
+  supportPin: string;
   createdAt: string;
 }
 
@@ -224,7 +225,28 @@ export default function ProfileManagementPage() {
             </form>
           </div>
 
-          {/* Section 2: Two-Factor Authentication (2FA TOTP) */}
+          {/* Section 2: Support PIN */}
+          <div className="p-6 rounded-2xl bg-white border border-[#EBEBE7] shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-[#EBEBE7] pb-4">
+              <h2 className="text-sm font-bold text-[#111111] flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-[#0D3B85]" />
+                <span>Support PIN</span>
+              </h2>
+            </div>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="text-xs font-bold text-[#111111]">Account Verification PIN</div>
+                <p className="text-xs text-[#6B6E68]">
+                  Provide this 4-digit PIN to our support agents when requested. They will use this to securely access and assist with your account.
+                </p>
+              </div>
+              <div className="px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg text-lg font-mono font-bold tracking-widest text-[#0D3B85] shrink-0">
+                {profile.supportPin || '****'}
+              </div>
+            </div>
+          </div>
+
+          {/* Section 3: Two-Factor Authentication (2FA TOTP) */}
           <div className="p-6 rounded-2xl bg-white border border-[#EBEBE7] shadow-xs space-y-4">
             <div className="flex items-center justify-between border-b border-[#EBEBE7] pb-4">
               <h2 className="text-sm font-bold text-[#111111] flex items-center gap-2">

@@ -20,8 +20,21 @@ CREATE TABLE IF NOT EXISTS public.users (
     auto_debit_enabled BOOLEAN DEFAULT true,
     two_factor_enabled BOOLEAN DEFAULT false,
     kyc_status VARCHAR(20) DEFAULT 'verified' CHECK (kyc_status IN ('unverified', 'pending', 'verified', 'rejected')),
+    support_pin VARCHAR(4) DEFAULT lpad(floor(random() * 10000)::text, 4, '0'),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_users_email ON public.users (email);
+CREATE INDEX IF NOT EXISTS idx_users_country ON public.users (country_code);
+
+-- 1.5 ADMINS TABLE (RBAC)
+CREATE TABLE IF NOT EXISTS public.admins (
+    id TEXT PRIMARY KEY DEFAULT ('adm-' || substr(md5(random()::text), 1, 12)),
+    email TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    role VARCHAR(30) NOT NULL CHECK (role IN ('super_admin', 'hosting_assistant', 'domain_assistant', 'billing_assistant', 'support_agent')),
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON public.users (email);
@@ -127,4 +140,26 @@ CREATE TABLE IF NOT EXISTS public.hosting_waitlist (
 );
 
 CREATE INDEX IF NOT EXISTS idx_waitlist_email ON public.hosting_waitlist (email);
+
+-- 8. SYSTEM ANNOUNCEMENTS & NEWS TABLE
+CREATE TABLE IF NOT EXISTS public.system_announcements (
+    id TEXT PRIMARY KEY DEFAULT ('ann-' || substr(md5(random()::text), 1, 12)),
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    type VARCHAR(20) DEFAULT 'info' CHECK (type IN ('info', 'warning', 'success', 'promo')),
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 9. PRICING & MARGINS CONFIG
+CREATE TABLE IF NOT EXISTS public.pricing_config (
+    id TEXT PRIMARY KEY DEFAULT 'global-pricing-config',
+    domain_extensions JSONB DEFAULT '[{"tld":".com","base":9.00,"markup":2.99},{"tld":".org","base":10.50,"markup":3.00},{"tld":".net","base":11.00,"markup":2.50}]'::jsonb,
+    hosting_starter NUMERIC(10,2) DEFAULT 4.99,
+    hosting_pro NUMERIC(10,2) DEFAULT 12.99,
+    hosting_enterprise NUMERIC(10,2) DEFAULT 29.99,
+    rental_base NUMERIC(10,2) DEFAULT 7.99,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
 

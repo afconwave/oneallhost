@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import dns from 'dns';
 import tls from 'tls';
+import { db } from '@oneallhost/db';
 
 export const toolsRouter = express.Router();
 
@@ -557,4 +558,26 @@ const handleGeoIp = (req: Request, res: Response) => {
 
 toolsRouter.get('/geoip', handleGeoIp);
 toolsRouter.get('/geo', handleGeoIp);
+
+/**
+ * 5. Global System Announcements
+ */
+toolsRouter.get('/announcements/active', async (req: Request, res: Response) => {
+  const active = await db.announcementsRepo.getActive();
+  return res.json({
+    success: true,
+    announcement: active || null,
+  });
+});
+
+/**
+ * 6. Global Pricing Configuration
+ */
+toolsRouter.get('/pricing', async (req: Request, res: Response) => {
+  const pricing = await db.pricingRepo.get();
+  return res.json({
+    success: true,
+    pricing,
+  });
+});
 

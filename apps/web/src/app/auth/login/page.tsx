@@ -36,11 +36,12 @@ export default function LoginPage() {
         return;
       }
 
-      const token = data.token || `onh_jwt_${data.user?.id || 'usr-1'}_${Date.now()}`;
+      const token = data.token || (data.user?.id ? `onh_jwt_${data.user.id}_${Date.now()}` : '');
+      const emailResolved = data.user?.email || username;
       localStorage.setItem(
         'oneallhost_user_session',
         JSON.stringify({
-          username: username || data.user?.email || 'client@oneallhost.com',
+          username: emailResolved,
           name: data.user?.name || username.split('@')[0],
           token,
           loggedIn: true,
@@ -50,13 +51,14 @@ export default function LoginPage() {
       window.dispatchEvent(new Event('auth-changed'));
       router.push('/dashboard');
     } catch {
-      // Fallback to local session
-      localStorage.setItem(
-        'oneallhost_user_session',
-        JSON.stringify({ username: username || 'client@oneallhost.com', loggedIn: true, loginTime: new Date().toISOString() })
-      );
-      window.dispatchEvent(new Event('auth-changed'));
-      router.push('/dashboard');
+      if (username) {
+        localStorage.setItem(
+          'oneallhost_user_session',
+          JSON.stringify({ username, name: username.split('@')[0], loggedIn: true, loginTime: new Date().toISOString() })
+        );
+        window.dispatchEvent(new Event('auth-changed'));
+        router.push('/dashboard');
+      }
     } finally {
       setIsLoading(false);
     }

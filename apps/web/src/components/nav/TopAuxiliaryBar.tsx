@@ -77,8 +77,8 @@ export const TopAuxiliaryBar: React.FC = () => {
         if (parsed && parsed.loggedIn) {
           setIsLoggedIn(true);
           setLoggedInUser({
-            name: parsed.name || parsed.username?.split('@')[0] || 'Account Owner',
-            email: parsed.username || 'client@oneallhost.com',
+            name: parsed.name || parsed.username?.split('@')[0] || 'User',
+            email: parsed.email || parsed.username || '',
           });
 
           if (parsed.token) {
@@ -194,8 +194,9 @@ export const TopAuxiliaryBar: React.FC = () => {
       localStorage.removeItem('oneallhost_remembered_user');
     }
 
+    const targetEmail = username.trim();
     const sessionObj = {
-      username: username || 'client@oneallhost.com',
+      username: targetEmail,
       loggedIn: true,
       loginTime: new Date().toISOString(),
     };
@@ -204,8 +205,8 @@ export const TopAuxiliaryBar: React.FC = () => {
 
     setIsLoggedIn(true);
     setLoggedInUser({
-      name: username.split('@')[0] || 'Account Owner',
-      email: username || 'client@oneallhost.com',
+      name: targetEmail.split('@')[0] || 'User',
+      email: targetEmail,
     });
 
     setTimeout(() => {

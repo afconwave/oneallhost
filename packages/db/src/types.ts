@@ -9,6 +9,7 @@ export type OrderType = 'domain_purchase' | 'rental' | 'hosting' | 'domain_renew
 export type PaymentMethod = 'card' | 'momo' | 'orange_money' | 'crypto';
 export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded';
 export type DNSRecordType = 'A' | 'AAAA' | 'CNAME' | 'MX' | 'TXT' | 'NS' | 'SRV';
+export type AnnouncementType = 'info' | 'warning' | 'success' | 'promo';
 
 export interface Profile {
   id: string;
@@ -20,6 +21,7 @@ export interface Profile {
   kyc_status: KYCStatus;
   kyc_document_url?: string;
   two_factor_enabled: boolean;
+  support_pin: string;
   created_at: string;
   updated_at: string;
 }
@@ -174,4 +176,28 @@ export interface SupportTicket {
   }>;
   created_at: string;
   updated_at: string;
+}
+
+export interface SystemAnnouncement {
+  id: string;
+  title: string;
+  message: string;
+  type: AnnouncementType;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DomainPricing {
+  tld: string;
+  base: number;
+  markup: number;
+}
+
+export interface PricingConfig {
+  domain_extensions: DomainPricing[];
+  hosting_starter: number;
+  hosting_pro: number;
+  hosting_enterprise: number;
+  rental_base: number;
 }

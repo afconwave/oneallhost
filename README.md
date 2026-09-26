@@ -2,13 +2,13 @@
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue.svg)](https://www.typescriptlang.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-16.3-black.svg)](https://nextjs.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-24.x-green.svg)](https://nodejs.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-24.x-green.svg)](https://nodejs.org/) 
 [![Turbo](https://img.shields.io/badge/Turborepo-Monorepo-EF4444.svg)](https://turbo.build/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE) 
  
 **Oneallhost** is a high-performance, ICANN-compliant domain registrar, cloud hosting, and staging infrastructure platform purpose-built for African and global entrepreneurs. It bridges international top-level domains (gTLDs, ccTLDs) with seamless African Mobile Money rails (MTN MoMo, Orange Money, Wave), Anycast DNS routing, developer staging rentals with 100% purchase rebates, and automated account wallets.
 
----
+---  
 
 ## 1. Monorepo Architecture
  

@@ -9,10 +9,10 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@oneallhost/config": "workspace:*",
-    "@oneallhost/db": "workspace:*",
-    "@oneallhost/payments": "workspace:*",
-    "@oneallhost/ui": "workspace:*",
+    "@oneallhost/config": "*",
+    "@oneallhost/db": "*",
+    "@oneallhost/payments": "*",
+    "@oneallhost/ui": "*",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.49.1",
     "clsx": "^2.1.1",

@@ -4,10 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "turbo run dev",
-    "dev:web": "pnpm --filter @oneallhost/web dev",
-    "dev:admin": "pnpm --filter @oneallhost/admin dev",
-    "dev:api": "pnpm --filter @oneallhost/api dev",
+    "dev:web": "npm run dev -w @oneallhost/web",
+    "dev:admin": "npm run dev -w @oneallhost/admin",
+    "dev:api": "npm run dev -w @oneallhost/api",
     "build": "turbo run build",
+    "start": "npm run start -w @oneallhost/api",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "clean": "turbo run clean"
@@ -16,7 +17,6 @@
     "turbo": "^2.4.4",
     "typescript": "^5.8.2"
   },
-  "packageManager": "pnpm@11.9.0",
   "workspaces": [
     "apps/*",
     "packages/*"

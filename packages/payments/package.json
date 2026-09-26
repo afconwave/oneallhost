@@ -8,7 +8,7 @@
     "build": "tsc"
   },
   "dependencies": {
-    "@oneallhost/db": "workspace:*"
+    "@oneallhost/db": "*"
   },
   "devDependencies": {
     "@types/node": "^22.13.1",

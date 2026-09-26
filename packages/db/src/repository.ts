@@ -133,25 +133,95 @@ class SupabaseDatabaseEngine {
   private ticketsCache: import('./types').SupportTicket[] = [];
 
   constructor() {
-    // Clean production state - all data is loaded from live Supabase Postgres tables
+    // Seed initial local state for development & local environment
+    const adminUser: UserRecord = {
+      id: 'usr-admin-001',
+      name: 'System Super Admin',
+      email: 'admin@oneallhost.com',
+      phone: '+237600000000',
+      countryCode: 'CM',
+      preferredCurrency: 'USD',
+      balanceUsd: 1000.00,
+      balanceXaf: 650000,
+      autoDebitEnabled: true,
+      twoFactorEnabled: true,
+      kycStatus: 'verified',
+      supportPin: '888888',
+      supportPinExpiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+      isStaff: true,
+      staffRole: 'super_admin',
+      status: 'active',
+      createdAt: new Date().toISOString(),
+    };
+
+    const demoUser: UserRecord = {
+      id: 'usr-demo-001',
+      name: 'Aloah Milton',
+      email: 'aloahmilton9@gmail.com',
+      phone: '+237670001122',
+      countryCode: 'CM',
+      preferredCurrency: 'USD',
+      balanceUsd: 250.00,
+      balanceXaf: 162500,
+      autoDebitEnabled: true,
+      twoFactorEnabled: false,
+      kycStatus: 'verified',
+      supportPin: '123456',
+      supportPinExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      isStaff: false,
+      status: 'active',
+      createdAt: new Date().toISOString(),
+    };
+
+    this.usersCache.set(adminUser.id, adminUser);
+    this.usersCache.set(demoUser.id, demoUser);
+
+    this.ticketsCache = [
+      {
+        id: 'tkt-001',
+        user_id: demoUser.id,
+        subject: 'DNS Propagation issue for oneallhost.com',
+        category: 'domains',
+        status: 'open',
+        priority: 'high',
+        created_at: new Date(Date.now() - 3600000).toISOString(),
+        updated_at: new Date(Date.now() - 3600000).toISOString(),
+        messages: [
+          {
+            id: 'msg-001',
+            sender_id: demoUser.id,
+            sender_name: demoUser.name,
+            sender_role: 'client',
+            message: 'Hello, my custom NS records are taking over 2 hours to resolve. Could you please check the TLD zone file status?',
+            timestamp: new Date(Date.now() - 3600000).toISOString(),
+          }
+        ]
+      }
+    ];
   }
 
   // --- Users & Wallet ---
   public usersRepo = {
-    create: async (user: Omit<UserRecord, 'id' | 'createdAt' | 'balanceUsd' | 'balanceXaf' | 'autoDebitEnabled'>): Promise<UserRecord> => {
-      const id = `usr-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    create: async (user: Omit<UserRecord, 'id' | 'createdAt' | 'balanceUsd' | 'balanceXaf' | 'autoDebitEnabled' | 'supportPin' | 'supportPinExpiresAt' | 'isStaff' | 'staffRole' | 'status'> & Partial<UserRecord>): Promise<UserRecord> => {
+      const id = user.id || `usr-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
       const record: UserRecord = {
-        ...user,
+        name: user.name,
+        email: user.email,
+        phone: user.phone || '',
+        countryCode: user.countryCode || 'CM',
+        preferredCurrency: user.preferredCurrency || 'USD',
+        twoFactorEnabled: user.twoFactorEnabled || false,
+        kycStatus: user.kycStatus || 'verified',
         id,
-        balanceUsd: 0,
-        balanceXaf: 0,
-        autoDebitEnabled: true,
-        supportPin: Math.floor(100000 + Math.random() * 900000).toString(),
-        supportPinExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-        isStaff: false,
-        staffRole: undefined,
-        status: 'active',
-        createdAt: new Date().toISOString(),
+        balanceUsd: user.balanceUsd ?? 0,
+        balanceXaf: user.balanceXaf ?? 0,
+        autoDebitEnabled: user.autoDebitEnabled ?? true,
+        supportPin: user.supportPin || Math.floor(100000 + Math.random() * 900000).toString(),
+        supportPinExpiresAt: user.supportPinExpiresAt || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        isStaff: user.isStaff ?? false,
+        staffRole: user.staffRole,
+        status: user.status || 'active',
+        createdAt: user.createdAt || new Date().toISOString(),
       };
 
       if (isSupabaseConfigured) {

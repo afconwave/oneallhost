@@ -8,15 +8,10 @@ export default function AdminClientsPage() {
   const [clients, setClients] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  
-  // Impersonation Gate State
-  const [impersonateClient, setImpersonateClient] = useState<any>(null);
-  const [pinInput, setPinInput] = useState('');
-  const [pinError, setPinError] = useState('');
 
   const fetchClients = () => {
     setIsLoading(true);
-    fetch('/api/admin/clients')
+    fetch('/api/v1/admin/clients')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data && Array.isArray(data.clients)) {
@@ -31,26 +26,30 @@ export default function AdminClientsPage() {
     fetchClients();
   }, []);
 
-  const handleImpersonateClick = (client: any) => {
-    setImpersonateClient(client);
-    setPinInput('');
-    setPinError('');
-  };
-
-  const confirmImpersonate = () => {
-    if (pinInput === impersonateClient.supportPin) {
-      toast.success(`Access Granted! Impersonation session started for ${impersonateClient.name} (${impersonateClient.email}).`);
-      setImpersonateClient(null);
-    } else {
-      setPinError('Invalid Support PIN. Access Denied.');
-    }
-  };
-
   const handleVerifyKyc = (id: string) => {
     setClients((prev) =>
       prev.map((c) => (c.id === id ? { ...c, kycStatus: 'verified' } : c))
     );
     toast.success(`KYC status verified for client ${id}`);
+  };
+
+  const handleToggleStatus = async (id: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'active' ? 'suspended' : 'active';
+    if (!confirm(`Are you sure you want to ${newStatus === 'suspended' ? 'suspend' : 'reactivate'} this user?`)) return;
+    
+    try {
+      const res = await fetch(`/api/v1/admin/clients/${id}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus, reason: 'Admin action' })
+      });
+      if (res.ok) {
+        setClients(prev => prev.map(c => c.id === id ? { ...c, status: newStatus } : c));
+        toast.success(`User has been ${newStatus}`);
+      }
+    } catch (err) {
+      toast.error('Failed to change user status');
+    }
   };
 
   const filtered = clients.filter(
@@ -91,9 +90,12 @@ export default function AdminClientsPage() {
         </TableHeader>
         <TableBody>
           {filtered.map((client) => (
-            <TableRow key={client.id}>
+            <TableRow key={client.id} className={client.status === 'suspended' ? 'opacity-60' : ''}>
               <TableCell>
-                <div className="font-medium text-xs text-[#111111]">{client.name}</div>
+                <div className="font-medium text-xs text-[#111111] flex items-center gap-2">
+                  {client.name}
+                  {client.status === 'suspended' && <Badge variant="danger" className="text-[9px] px-1 py-0 h-4">Suspended</Badge>}
+                </div>
                 <div className="font-mono text-[11px] text-[#6B6E68]">{client.email}</div>
               </TableCell>
               <TableCell>
@@ -127,11 +129,10 @@ export default function AdminClientsPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="text-xs gap-1"
-                  onClick={() => handleImpersonateClick(client)}
+                  className={`text-xs gap-1 ${client.status === 'active' ? 'text-red-600 border-red-200 hover:bg-red-50' : 'text-emerald-600 border-emerald-200 hover:bg-emerald-50'}`}
+                  onClick={() => handleToggleStatus(client.id, client.status || 'active')}
                 >
-                  <Eye className="w-3 h-3" />
-                  <span>Impersonate</span>
+                  {client.status === 'active' ? 'Suspend' : 'Reactivate'}
                 </Button>
               </TableCell>
             </TableRow>
@@ -146,38 +147,6 @@ export default function AdminClientsPage() {
         </TableBody>
       </Table>
 
-      {/* Support PIN Unlock Gate Modal */}
-      {impersonateClient && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white p-6 rounded-2xl w-full max-w-md shadow-2xl border border-[#EBEBE7]">
-            <h3 className="text-lg font-bold text-[#111111] mb-2 flex items-center gap-2">
-              <Eye className="w-5 h-5 text-[#0D3B85]" /> Account Locked
-            </h3>
-            <p className="text-sm text-[#6B6E68] mb-4">
-              To impersonate <span className="font-bold text-[#111111]">{impersonateClient.name}</span>, you must request their 4-digit Support PIN.
-            </p>
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-bold text-[#111111] block mb-1">Enter Support PIN</label>
-                <Input
-                  placeholder="e.g. 1234"
-                  value={pinInput}
-                  onChange={(e) => {
-                    setPinInput(e.target.value);
-                    setPinError('');
-                  }}
-                  className="font-mono text-center tracking-[0.5em] text-lg"
-                />
-                {pinError && <p className="text-xs text-red-600 font-bold mt-2">{pinError}</p>}
-              </div>
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <Button variant="outline" size="sm" onClick={() => setImpersonateClient(null)}>Cancel</Button>
-                <Button variant="primary" size="sm" onClick={confirmImpersonate} className="bg-[#0D3B85] hover:bg-[#1B6FC9]">Unlock Account</Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

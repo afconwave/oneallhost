@@ -1,154 +1,320 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Button, Input } from '@oneallhost/ui';
-import { LifeBuoy, Send, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Card, Button, Input } from '@oneallhost/ui';
+import { Badge } from '@oneallhost/ui/src/Badge';
+import { MessageSquare, Plus, Clock, AlertCircle, ArrowLeft, Send } from 'lucide-react';
 
-export default function SupportPage() {
+const toast = {
+  success: (msg: string) => console.log('SUCCESS:', msg),
+  error: (msg: string) => console.error('ERROR:', msg)
+};
+
+export default function SupportDashboard() {
+  const [tickets, setTickets] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [viewingTicket, setViewingTicket] = useState<any | null>(null);
+  const [showNewTicket, setShowNewTicket] = useState(false);
+  const [messageText, setMessageText] = useState('');
+
+  // New Ticket Form State
   const [subject, setSubject] = useState('');
-  const [category, setCategory] = useState('domains');
-  const [message, setMessage] = useState('');
-  const [isSubmitted, setIsSubmitted] = useState(false);
-  const [openFaq, setOpenFaq] = useState<number | null>(0);
+  const [department, setDepartment] = useState('technical');
+  const [priority, setPriority] = useState('medium');
+  const [initialMessage, setInitialMessage] = useState('');
 
-  const faqs = [
-    {
-      q: 'How does the 60-day ICANN registrar lock work?',
-      a: 'Per ICANN consensus policy, all freshly registered domain names and recent registrar transfers cannot be transferred out to a third-party registrar for 60 days following the transaction.',
-    },
-    {
-      q: 'How do I convert my rental subdomain into a full domain purchase?',
-      a: 'Navigate to the Rentals tab in your dashboard, locate your active lease, and click "Convert to purchase". 100% of your paid rental fees are subtracted from the standard domain registration price.',
-    },
-    {
-      q: 'What payment methods are supported for billing?',
-      a: 'We natively support MTN Mobile Money, Orange Money, Visa, and Mastercard with instant automated receipt generation.',
-    },
-    {
-      q: 'How long does DNS propagation take after updating records?',
-      a: 'Our nameservers operate globally with typical record propagation taking between 2 to 3 minutes.',
-    },
-  ];
+  const userId = 'usr-demo-123'; // Replace with actual auth user ID
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!subject || !message) return;
-    setIsSubmitted(true);
+  useEffect(() => {
+    loadTickets();
+  }, []);
+
+  const loadTickets = async () => {
+    try {
+      const res = await fetch(`/api/v1/tickets/user/${userId}`);
+      const data = await res.json();
+      if (data.success) {
+        setTickets(data.tickets);
+      }
+    } catch (err) {
+      toast.error('Failed to load support tickets');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="border-b border-[#EBEBE7] pb-4">
-        <h1 className="text-2xl font-bold text-[#111111] font-display">Support & Help Desk</h1>
-        <p className="text-xs text-[#6B6E68] mt-1">
-          Submit technical tickets, query DNS guidance, or review frequently asked questions.
-        </p>
-      </div>
+  const createTicket = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      // 1. Create the ticket
+      const res = await fetch('/api/v1/tickets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: userId,
+          subject,
+          category: department,
+          priority
+        })
+      });
+      const data = await res.json();
+      
+      if (data.success) {
+        // 2. Add the initial message
+        await fetch(`/api/v1/tickets/${data.ticket.id}/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sender_id: userId,
+            sender_name: 'Customer',
+            sender_role: 'customer',
+            message: initialMessage
+          })
+        });
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* TICKET FORM */}
-        <div className="space-y-4">
-          <h2 className="text-sm font-bold text-[#111111]">
-            Open Support Ticket
-          </h2>
+        toast.success('Support ticket created successfully!');
+        setShowNewTicket(false);
+        setSubject('');
+        setInitialMessage('');
+        loadTickets();
+      }
+    } catch (err) {
+      toast.error('Failed to create ticket');
+    }
+  };
 
-          {isSubmitted ? (
-            <div className="p-6 rounded-2xl text-center space-y-3 bg-[#F3F8EC] border border-[#D6E8C2]">
-              <CheckCircle2 className="w-8 h-8 text-[#4E7525] mx-auto" />
-              <h3 className="text-sm font-bold text-[#111111]">Ticket Received (TICK-98214)</h3>
-              <p className="text-xs text-[#6B6E68]">
-                Our support engineering team will respond within 2 business hours.
-              </p>
-              <Button variant="outline" size="sm" onClick={() => setIsSubmitted(false)}>
-                Submit another ticket
-              </Button>
+  const sendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!messageText.trim() || !viewingTicket) return;
+
+    try {
+      const res = await fetch(`/api/v1/tickets/${viewingTicket.id}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sender_id: userId,
+          sender_name: 'Customer',
+          sender_role: 'customer',
+          message: messageText
+        })
+      });
+      const data = await res.json();
+      
+      if (data.success) {
+        const updatedTicket = { ...viewingTicket };
+        updatedTicket.messages.push(data.message);
+        setViewingTicket(updatedTicket);
+        setMessageText('');
+      }
+    } catch (err) {
+      toast.error('Failed to send message');
+    }
+  };
+
+  if (isLoading) {
+    return <div className="p-8 text-center text-xs text-[#6B6E68]">Loading tickets...</div>;
+  }
+
+  // --- VIEW: Ticket Conversation ---
+  if (viewingTicket) {
+    return (
+      <div className="space-y-6 max-w-4xl">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="sm" onClick={() => setViewingTicket(null)} className="gap-2">
+            <ArrowLeft className="w-4 h-4" /> Back
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold text-[#111111]">[{viewingTicket.id}] {viewingTicket.subject}</h1>
+            <div className="flex gap-2 mt-1">
+              <Badge variant={viewingTicket.status === 'open' ? 'warning' : 'success'}>
+                {viewingTicket.status.toUpperCase()}
+              </Badge>
+              <Badge variant="info">{viewingTicket.category}</Badge>
             </div>
-          ) : (
-            <div className="p-6 rounded-2xl bg-white border border-[#EBEBE7] shadow-xs">
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-[#111111] block">Subject</label>
-                  <input
-                    placeholder="e.g. DNS Propagation issue on mydomain.com"
-                    value={subject}
-                    onChange={(e) => setSubject(e.target.value)}
-                    required
-                    className="w-full h-11 px-3.5 rounded-xl border border-[#DCDDD8] text-xs bg-white text-[#111111] focus:border-[#0D3B85] outline-none"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-[#111111] block">Department</label>
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="w-full h-11 px-3 bg-white border border-[#DCDDD8] rounded-xl text-xs text-[#111111] focus:border-[#0D3B85] outline-none"
-                  >
-                    <option value="domains">Domain Management & DNS</option>
-                    <option value="rentals">Rentals & Lease Conversion</option>
-                    <option value="hosting">Cloud Hosting Layer</option>
-                    <option value="billing">Billing & Mobile Money</option>
-                    <option value="technical">Technical Inquiries</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-[#111111] block">Details & Context</label>
-                  <textarea
-                    rows={4}
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    required
-                    placeholder="Describe the issue in detail..."
-                    className="w-full p-3.5 rounded-xl border border-[#DCDDD8] text-xs bg-white text-[#111111] focus:border-[#0D3B85] outline-none"
-                  />
-                </div>
-
-                <Button variant="primary" size="sm" className="w-full bg-[#0D3B85] hover:bg-[#1B6FC9] font-bold text-xs h-11 rounded-xl">
-                  <Send className="w-3.5 h-3.5 mr-2" />
-                  <span>Submit Support Ticket</span>
-                </Button>
-              </form>
-            </div>
-          )}
+          </div>
         </div>
 
-        {/* FAQs ACCORDION */}
-        <div className="space-y-4">
-          <h2 className="text-sm font-bold text-[#111111]">
-            Frequently Answered Questions
-          </h2>
-
-          <div className="space-y-3">
-            {faqs.map((faq, idx) => (
-              <div
-                key={idx}
-                className="bg-white rounded-2xl border border-[#EBEBE7] overflow-hidden shadow-xs"
-              >
-                <button
-                  type="button"
-                  onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
-                  className="w-full p-4 text-left flex items-center justify-between text-xs font-bold text-[#111111] hover:bg-[#FAFAF9]"
-                >
-                  <span>{faq.q}</span>
-                  {openFaq === idx ? (
-                    <ChevronUp className="w-4 h-4 text-[#6B6E68] shrink-0" />
-                  ) : (
-                    <ChevronDown className="w-4 h-4 text-[#6B6E68] shrink-0" />
-                  )}
-                </button>
-
-                {openFaq === idx && (
-                  <div className="px-4 pb-4 text-xs text-[#6B6E68] leading-relaxed border-t border-[#EBEBE7] pt-3 bg-[#FAFAF9]/50">
-                    {faq.a}
+        <Card elevation="surface-1" className="flex flex-col h-[500px]">
+          <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-[#FAFAF9]">
+            {viewingTicket.messages.length === 0 ? (
+              <p className="text-center text-[#6B6E68] text-xs">No messages yet.</p>
+            ) : (
+              viewingTicket.messages.map((msg: any, i: number) => {
+                const isStaff = msg.sender_role !== 'customer';
+                return (
+                  <div key={i} className={`flex flex-col ${isStaff ? 'items-start' : 'items-end'}`}>
+                    <div className="text-[10px] text-[#6B6E68] mb-1 px-1">
+                      {isStaff ? 'Support Team' : 'You'} • {new Date(msg.timestamp).toLocaleString()}
+                    </div>
+                    <div className={`p-3 rounded-2xl max-w-[80%] text-sm ${isStaff ? 'bg-white border border-[#DCDDD8] text-[#111111]' : 'bg-[#0D3B85] text-white'}`}>
+                      {msg.message}
+                    </div>
                   </div>
-                )}
+                );
+              })
+            )}
+          </div>
+          
+          <div className="p-4 border-t border-[#EBEBE7] bg-white rounded-b-2xl">
+            <form onSubmit={sendMessage} className="flex gap-3">
+              <Input
+                value={messageText}
+                onChange={(e) => setMessageText(e.target.value)}
+                placeholder="Type your reply..."
+                className="flex-1"
+                disabled={viewingTicket.status === 'closed'}
+              />
+              <Button 
+                variant="primary" 
+                type="submit" 
+                disabled={!messageText.trim() || viewingTicket.status === 'closed'}
+                className="gap-2 bg-[#0D3B85] hover:bg-[#1B6FC9]"
+              >
+                Send <Send className="w-4 h-4" />
+              </Button>
+            </form>
+            {viewingTicket.status === 'closed' && (
+              <p className="text-xs text-center text-red-500 mt-2">This ticket has been closed by the support team.</p>
+            )}
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  // --- VIEW: New Ticket Form ---
+  if (showNewTicket) {
+    return (
+      <div className="max-w-2xl space-y-6">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="sm" onClick={() => setShowNewTicket(false)} className="gap-2">
+            <ArrowLeft className="w-4 h-4" /> Back to Tickets
+          </Button>
+          <h1 className="text-2xl font-bold text-[#111111]">Open a New Ticket</h1>
+        </div>
+
+        <Card elevation="surface-1" className="p-6">
+          <form onSubmit={createTicket} className="space-y-4">
+            <div>
+              <label className="text-xs font-bold text-[#111111] block mb-1">Subject</label>
+              <Input 
+                value={subject} 
+                onChange={e => setSubject(e.target.value)} 
+                placeholder="Briefly describe your issue" 
+                required 
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-bold text-[#111111] block mb-1">Department</label>
+                <select 
+                  className="w-full rounded-md border border-[#DCDDD8] p-2 text-sm"
+                  value={department}
+                  onChange={e => setDepartment(e.target.value)}
+                >
+                  <option value="technical">Technical Support</option>
+                  <option value="billing">Billing & Sales</option>
+                  <option value="domains">Domain Names</option>
+                  <option value="abuse">Abuse & Security</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-[#111111] block mb-1">Priority</label>
+                <select 
+                  className="w-full rounded-md border border-[#DCDDD8] p-2 text-sm"
+                  value={priority}
+                  onChange={e => setPriority(e.target.value)}
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="urgent">Urgent</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-[#111111] block mb-1">Message</label>
+              <textarea 
+                className="w-full rounded-md border border-[#DCDDD8] p-3 text-sm min-h-[150px]"
+                value={initialMessage}
+                onChange={e => setInitialMessage(e.target.value)}
+                placeholder="Provide as much detail as possible..."
+                required
+              />
+            </div>
+
+            <Button variant="primary" type="submit" className="w-full bg-[#0D3B85]">Submit Ticket</Button>
+          </form>
+        </Card>
+      </div>
+    );
+  }
+
+  // --- VIEW: Ticket List ---
+  return (
+    <div className="space-y-6 max-w-5xl">
+      <div className="flex justify-between items-end">
+        <div>
+          <h1 className="text-2xl font-bold text-[#111111]">Support Tickets</h1>
+          <p className="text-sm text-[#6B6E68] mt-1">Need help? Our team is available 24/7.</p>
+        </div>
+        <Button variant="primary" className="bg-[#0D3B85] hover:bg-[#1B6FC9] gap-2" onClick={() => setShowNewTicket(true)}>
+          <Plus className="w-4 h-4" /> Open Ticket
+        </Button>
+      </div>
+
+      <Card elevation="surface-1" className="overflow-hidden">
+        {tickets.length === 0 ? (
+          <div className="p-12 text-center">
+            <MessageSquare className="w-12 h-12 text-[#1B6FC9] opacity-20 mx-auto mb-4" />
+            <h3 className="text-lg font-bold text-[#111111]">No Support Tickets</h3>
+            <p className="text-sm text-[#6B6E68] mt-1 mb-4">You haven't opened any support requests yet.</p>
+            <Button variant="outline" onClick={() => setShowNewTicket(true)}>Open your first ticket</Button>
+          </div>
+        ) : (
+          <div className="divide-y divide-[#EBEBE7]">
+            {tickets.map(ticket => (
+              <div 
+                key={ticket.id} 
+                className="p-5 flex items-center justify-between hover:bg-[#FAFAF9] cursor-pointer transition-colors"
+                onClick={() => setViewingTicket(ticket)}
+              >
+                <div className="flex items-start gap-4">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    ticket.status === 'open' ? 'bg-orange-100 text-orange-600' :
+                    ticket.status === 'closed' ? 'bg-gray-100 text-gray-500' :
+                    'bg-green-100 text-green-600'
+                  }`}>
+                    {ticket.status === 'open' ? <AlertCircle className="w-5 h-5" /> : 
+                     ticket.status === 'closed' ? <MessageSquare className="w-5 h-5" /> :
+                     <Clock className="w-5 h-5" />}
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-[#111111]">{ticket.subject}</h4>
+                    <div className="flex items-center gap-3 text-xs text-[#6B6E68] mt-1">
+                      <span className="font-mono text-[#0D3B85]">#{ticket.id}</span>
+                      <span>•</span>
+                      <span>{ticket.category}</span>
+                      <span>•</span>
+                      <span>Updated {new Date(ticket.updated_at).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <Badge variant={
+                    ticket.status === 'open' ? 'warning' :
+                    ticket.status === 'closed' ? 'neutral' : 'success'
+                  }>
+                    {ticket.status.toUpperCase()}
+                  </Badge>
+                </div>
               </div>
             ))}
           </div>
-        </div>
-      </div>
+        )}
+      </Card>
     </div>
   );
 }

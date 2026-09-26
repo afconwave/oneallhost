@@ -16,6 +16,8 @@ import {
   FileText,
   Megaphone,
   DollarSign,
+  MessageSquare,
+  ShieldAlert
 } from 'lucide-react';
 import './globals.css';
 
@@ -26,12 +28,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const allNavItems = [
     { label: 'Overview', href: '/', icon: LayoutDashboard, roles: ['super_admin'] },
+    { label: 'Staff & Roles', href: '/staff', icon: ShieldAlert, roles: ['super_admin'] },
     { label: 'Clients & KYC', href: '/clients', icon: Users, roles: ['super_admin', 'support_agent', 'billing_assistant'] },
     { label: 'Domain Registry', href: '/domains', icon: Globe, roles: ['super_admin', 'domain_assistant', 'support_agent'] },
     { label: 'Subdomain Rentals', href: '/rentals', icon: Clock, roles: ['super_admin', 'domain_assistant', 'hosting_assistant'] },
     { label: 'Hosting Waitlist', href: '/hosting', icon: Server, roles: ['super_admin', 'hosting_assistant', 'support_agent'] },
     { label: 'Pricing & Margins', href: '/pricing', icon: DollarSign, roles: ['super_admin', 'billing_assistant'] },
     { label: 'Payments & Reconciliation', href: '/payments', icon: CreditCard, roles: ['super_admin', 'billing_assistant'] },
+    { label: 'Helpdesk Tickets', href: '/helpdesk', icon: MessageSquare, roles: ['super_admin', 'support_agent'] },
     { label: 'Marketing & Promos', href: '/announcements', icon: Megaphone, roles: ['super_admin'] },
     { label: 'Audit Logs', href: '/audit-logs', icon: FileText, roles: ['super_admin'] },
     { label: 'System Health', href: '/health', icon: Activity, roles: ['super_admin'] },

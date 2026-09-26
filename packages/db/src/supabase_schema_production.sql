@@ -20,7 +20,11 @@ CREATE TABLE IF NOT EXISTS public.users (
     auto_debit_enabled BOOLEAN DEFAULT true,
     two_factor_enabled BOOLEAN DEFAULT false,
     kyc_status VARCHAR(20) DEFAULT 'verified' CHECK (kyc_status IN ('unverified', 'pending', 'verified', 'rejected')),
-    support_pin VARCHAR(4) DEFAULT lpad(floor(random() * 10000)::text, 4, '0'),
+    support_pin VARCHAR(6) DEFAULT lpad(floor(random() * 1000000)::text, 6, '0'),
+    support_pin_expires_at TIMESTAMPTZ DEFAULT NOW() + INTERVAL '24 hours',
+    is_staff BOOLEAN DEFAULT false,
+    staff_role VARCHAR(50) DEFAULT NULL,
+    status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'suspended', 'banned')),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -162,4 +166,29 @@ CREATE TABLE IF NOT EXISTS public.pricing_config (
     rental_base NUMERIC(10,2) DEFAULT 7.99,
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- 10. SUPPORT TICKETS
+CREATE TABLE IF NOT EXISTS public.tickets (
+    id TEXT PRIMARY KEY DEFAULT ('tkt-' || substr(md5(random()::text), 1, 10)),
+    user_id TEXT REFERENCES public.users(id) ON DELETE CASCADE,
+    subject TEXT NOT NULL,
+    department VARCHAR(50) DEFAULT 'general',
+    status VARCHAR(20) DEFAULT 'open' CHECK (status IN ('open', 'pending', 'answered', 'closed')),
+    priority VARCHAR(20) DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_tickets_user_id ON public.tickets (user_id);
+CREATE INDEX IF NOT EXISTS idx_tickets_status ON public.tickets (status);
+
+-- 11. TICKET MESSAGES (REPLIES)
+CREATE TABLE IF NOT EXISTS public.ticket_messages (
+    id TEXT PRIMARY KEY DEFAULT ('msg-' || substr(md5(random()::text), 1, 12)),
+    ticket_id TEXT REFERENCES public.tickets(id) ON DELETE CASCADE,
+    sender_id TEXT REFERENCES public.users(id) ON DELETE CASCADE,
+    is_staff BOOLEAN DEFAULT false,
+    message TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_ticket_msgs_ticket_id ON public.ticket_messages (ticket_id);
 

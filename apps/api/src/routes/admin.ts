@@ -12,6 +12,84 @@ adminRouter.get('/stats', async (req: Request, res: Response) => {
   });
 });
 
+// 1.5 Impersonate User via Support PIN
+adminRouter.post('/impersonate', async (req: Request, res: Response) => {
+  const { pin } = req.body;
+  if (!pin) return res.status(400).json({ success: false, error: 'PIN is required' });
+
+  const users = await db.usersRepo.list();
+  const user = users.find(u => u.supportPin === pin);
+
+  if (!user) {
+    return res.status(404).json({ success: false, error: 'Invalid Support PIN' });
+  }
+
+  // Check expiry (if implemented properly, else just pass)
+  if (user.supportPinExpiresAt && new Date(user.supportPinExpiresAt) < new Date()) {
+    return res.status(400).json({ success: false, error: 'Support PIN has expired' });
+  }
+
+  // Log audit
+  await db.auditLogsRepo.log('ADMIN_IMPERSONATION', 'admin@oneallhost.com', user.id, { pin_used: pin });
+
+  // In a real app, generate a short-lived JWT token here.
+  return res.json({
+    success: true,
+    user: { id: user.id, name: user.name, email: user.email },
+    impersonationToken: `imp_${user.id}_${Date.now()}`
+  });
+});
+
+// 1.6 Staff Management
+adminRouter.get('/staff', async (req: Request, res: Response) => {
+  const users = await db.usersRepo.list();
+  const staff = users.filter(u => u.isStaff);
+  return res.json({ success: true, staff });
+});
+
+adminRouter.post('/staff/invite', async (req: Request, res: Response) => {
+  const { email, role } = req.body;
+  
+  // Fake invite logic for demo: Create a user with staff role directly
+  const newUser = await db.usersRepo.create({
+    name: email.split('@')[0],
+    email,
+    phone: '',
+    countryCode: 'US',
+    preferredCurrency: 'USD',
+    twoFactorEnabled: false,
+    kycStatus: 'verified',
+    supportPin: Math.floor(100000 + Math.random() * 900000).toString(),
+    supportPinExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    isStaff: true,
+    staffRole: role,
+    status: 'active'
+  });
+  
+  // Make them staff
+  const users = await db.usersRepo.list();
+  const user = users.find(u => u.id === newUser.id);
+  if (user) {
+    user.isStaff = true;
+    user.staffRole = role;
+  }
+  
+  await db.auditLogsRepo.log('STAFF_INVITED', 'admin@oneallhost.com', newUser.id, { role });
+  return res.json({ success: true, staff: user });
+});
+
+adminRouter.post('/staff/:id/revoke', async (req: Request, res: Response) => {
+  const users = await db.usersRepo.list();
+  const user = users.find(u => u.id === req.params.id);
+  if (user) {
+    user.isStaff = false;
+    user.staffRole = undefined;
+    await db.auditLogsRepo.log('STAFF_REVOKED', 'admin@oneallhost.com', user.id);
+    return res.json({ success: true });
+  }
+  return res.status(404).json({ success: false, error: 'Staff member not found' });
+});
+
 // 2. Clients & KYC Management
 adminRouter.get('/clients', async (req: Request, res: Response) => {
   const clients = await db.usersRepo.list();
@@ -27,6 +105,23 @@ adminRouter.get('/clients', async (req: Request, res: Response) => {
     success: true,
     clients: enhancedClients,
   });
+});
+
+adminRouter.post('/clients/:id/status', async (req: Request, res: Response) => {
+  const { status, reason } = req.body;
+  const users = await db.usersRepo.list();
+  const user = users.find(u => u.id === req.params.id);
+  
+  if (!user) {
+    return res.status(404).json({ success: false, error: 'User not found' });
+  }
+
+  // Update in cache/DB
+  user.status = status;
+  // Let's pretend there's an update method, but for now we just log it and rely on cache
+  await db.auditLogsRepo.log('USER_STATUS_CHANGED', 'admin@oneallhost.com', user.id, { new_status: status, reason });
+  
+  return res.json({ success: true, status });
 });
 
 // 3. Domain Registry Overview

@@ -9,6 +9,7 @@ import { userRouter } from './routes/users';
 import { adminRouter } from './routes/admin';
 import { toolsRouter } from './routes/tools';
 import { hostingRouter } from './routes/hosting';
+import ticketsRouter from './routes/tickets';
 import { createRateLimiter } from './middleware/rate-limiter';
 import { idempotencyMiddleware } from './middleware/idempotency';
 
@@ -46,6 +47,7 @@ v1Router.use('/payments', paymentRouter);
 v1Router.use('/invoices', invoiceRouter);
 v1Router.use('/health', healthRouter);
 v1Router.use('/hosting', hostingRouter);
+v1Router.use('/tickets', ticketsRouter);
 
 // Mount versioned endpoint `/api/v1` as the primary standard
 app.use('/api/v1', v1Router);

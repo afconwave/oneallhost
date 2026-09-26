@@ -18,6 +18,10 @@ export interface UserRecord {
   twoFactorEnabled: boolean;
   kycStatus: 'pending' | 'verified' | 'rejected' | 'unverified';
   supportPin: string;
+  supportPinExpiresAt: string;
+  isStaff: boolean;
+  staffRole?: string;
+  status: 'active' | 'suspended' | 'banned';
   createdAt: string;
 }
 
@@ -126,6 +130,7 @@ class SupabaseDatabaseEngine {
     hosting_enterprise: 29.99,
     rental_base: 7.99,
   };
+  private ticketsCache: import('./types').SupportTicket[] = [];
 
   constructor() {
     // Clean production state - all data is loaded from live Supabase Postgres tables
@@ -141,7 +146,11 @@ class SupabaseDatabaseEngine {
         balanceUsd: 0,
         balanceXaf: 0,
         autoDebitEnabled: true,
-        supportPin: Math.floor(1000 + Math.random() * 9000).toString(),
+        supportPin: Math.floor(100000 + Math.random() * 900000).toString(),
+        supportPinExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        isStaff: false,
+        staffRole: undefined,
+        status: 'active',
         createdAt: new Date().toISOString(),
       };
 
@@ -160,6 +169,11 @@ class SupabaseDatabaseEngine {
             two_factor_enabled: record.twoFactorEnabled,
             kyc_status: record.kycStatus,
             support_pin: record.supportPin,
+            support_pin_expires_at: record.supportPinExpiresAt,
+            is_staff: record.isStaff,
+            staff_role: record.staffRole,
+            status: record.status,
+            created_at: record.createdAt,
           });
         } catch (err) {
           console.error('[Supabase users.create]', err);
@@ -189,6 +203,10 @@ class SupabaseDatabaseEngine {
               twoFactorEnabled: Boolean(data.two_factor_enabled),
               kycStatus: data.kyc_status || 'verified',
               supportPin: data.support_pin || '0000',
+              supportPinExpiresAt: data.support_pin_expires_at || new Date().toISOString(),
+              isStaff: Boolean(data.is_staff),
+              staffRole: data.staff_role || undefined,
+              status: data.status || 'active',
               createdAt: data.created_at,
             };
             this.usersCache.set(id, mapped);
@@ -219,6 +237,10 @@ class SupabaseDatabaseEngine {
               twoFactorEnabled: Boolean(data.two_factor_enabled),
               kycStatus: data.kyc_status || 'verified',
               supportPin: data.support_pin || '0000',
+              supportPinExpiresAt: data.support_pin_expires_at || new Date().toISOString(),
+              isStaff: Boolean(data.is_staff),
+              staffRole: data.staff_role || undefined,
+              status: data.status || 'active',
               createdAt: data.created_at,
             };
             this.usersCache.set(mapped.id, mapped);
@@ -249,6 +271,10 @@ class SupabaseDatabaseEngine {
               twoFactorEnabled: Boolean(d.two_factor_enabled),
               kycStatus: d.kyc_status || 'verified',
               supportPin: d.support_pin || '0000',
+              supportPinExpiresAt: d.support_pin_expires_at || new Date().toISOString(),
+              isStaff: Boolean(d.is_staff),
+              staffRole: d.staff_role || undefined,
+              status: d.status || 'active',
               createdAt: d.created_at,
             }));
             mappedList.forEach((u) => this.usersCache.set(u.id, u));
@@ -939,6 +965,100 @@ class SupabaseDatabaseEngine {
       }
       await this.auditLogsRepo.log('PRICING_UPDATED', 'system', 'Updated platform pricing & margins');
       return this.pricingCache;
+    }
+  };
+
+  // --- Support Tickets Engine ---
+  public ticketsRepo = {
+    list: async () => {
+      if (isSupabaseConfigured) {
+        try {
+          const { data } = await supabase.from('tickets').select('*');
+          if (data) {
+            this.ticketsCache = data.map(ticket => ({
+              ...ticket,
+              messages: [] // Real implementation would fetch from ticket_messages
+            }));
+          }
+        } catch (err) {}
+      }
+      return [...this.ticketsCache].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    },
+    getByUser: async (userId: string) => {
+      const tickets = await this.ticketsRepo.list();
+      return tickets.filter(t => t.user_id === userId);
+    },
+    create: async (ticket: any) => {
+      const newTicket: any = {
+        id: `tkt-${Math.random().toString(36).substr(2, 9)}`,
+        user_id: ticket.user_id!,
+        subject: ticket.subject || 'No Subject',
+        category: ticket.category || 'technical',
+        priority: ticket.priority || 'medium',
+        status: 'open',
+        messages: [],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        ...ticket
+      };
+      this.ticketsCache.push(newTicket);
+      
+      if (isSupabaseConfigured) {
+        try {
+          await supabase.from('tickets').insert([{
+            id: newTicket.id,
+            user_id: newTicket.user_id,
+            subject: newTicket.subject,
+            department: newTicket.category,
+            priority: newTicket.priority,
+            status: newTicket.status,
+            created_at: newTicket.created_at,
+            updated_at: newTicket.updated_at
+          }]);
+        } catch (err) {}
+      }
+      
+      await this.auditLogsRepo.log('TICKET_CREATED', newTicket.user_id, `Created support ticket: ${newTicket.subject}`);
+      return newTicket;
+    },
+    addMessage: async (ticketId: string, message: any) => {
+      const ticket = this.ticketsCache.find(t => t.id === ticketId);
+      if (ticket) {
+        const newMessage = {
+          ...message,
+          id: `msg-${Math.random().toString(36).substr(2, 9)}`,
+          timestamp: new Date().toISOString()
+        };
+        ticket.messages.push(newMessage);
+        ticket.updated_at = new Date().toISOString();
+        
+        if (isSupabaseConfigured) {
+          try {
+            await supabase.from('ticket_messages').insert([{
+              id: newMessage.id,
+              ticket_id: ticketId,
+              sender_id: newMessage.sender_id,
+              is_staff: newMessage.sender_role !== 'customer',
+              message: newMessage.message,
+              created_at: newMessage.timestamp
+            }]);
+          } catch(err) {}
+        }
+        return newMessage;
+      }
+      throw new Error('Ticket not found');
+    },
+    updateStatus: async (ticketId: string, status: string) => {
+      const ticket = this.ticketsCache.find(t => t.id === ticketId);
+      if (ticket) {
+        ticket.status = status as any;
+        ticket.updated_at = new Date().toISOString();
+        if (isSupabaseConfigured) {
+           await supabase.from('tickets').update({ status, updated_at: ticket.updated_at }).eq('id', ticketId);
+        }
+        return ticket;
+      }
+      throw new Error('Ticket not found');
     }
   };
 

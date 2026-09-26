@@ -381,67 +381,6 @@ function CheckoutContent() {
     <div className="min-h-screen flex flex-col bg-white">
       <Header />
 
-      {/* UPSELL MODAL OVERLAY */}
-      {showUpsell && searchParams.get('domain') && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="bg-gradient-to-r from-[#0D3B85] to-[#1B6FC9] p-6 text-white text-center">
-              <h2 className="text-2xl font-bold font-display mb-2">Wait! Don't leave your domain stranded.</h2>
-              <p className="text-sm text-blue-100">Add web hosting now and get your website online instantly.</p>
-            </div>
-            
-            <div className="p-6 space-y-6">
-              <div 
-                className={`border-2 rounded-xl p-4 cursor-pointer transition-all ${addHosting ? 'border-[#7CB342] bg-green-50' : 'border-[#EBEBE7] hover:border-blue-300'}`}
-                onClick={() => setAddHosting(!addHosting)}
-              >
-                <div className="flex items-start gap-4">
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center mt-0.5 ${addHosting ? 'bg-[#7CB342] text-white' : 'bg-gray-100'}`}>
-                    {addHosting && <CheckCircle2 className="w-4 h-4" />}
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-bold text-[#111111] flex items-center gap-2">
-                      <Server className="w-4 h-4 text-[#1B6FC9]" /> Cloud Starter Hosting
-                    </h3>
-                    <p className="text-xs text-[#6B6E68] mt-1">10GB NVMe Storage, Unmetered Bandwidth, Free SSL.</p>
-                  </div>
-                  <div className="text-right">
-                    <span className="font-bold text-[#111111]">${hostingPrice.toFixed(2)}</span><span className="text-xs text-[#6B6E68]">/mo</span>
-                  </div>
-                </div>
-              </div>
-
-              <div 
-                className={`border-2 rounded-xl p-4 cursor-pointer transition-all ${addPrivacy ? 'border-[#7CB342] bg-green-50' : 'border-[#EBEBE7] hover:border-blue-300'}`}
-                onClick={() => setAddPrivacy(!addPrivacy)}
-              >
-                <div className="flex items-start gap-4">
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center mt-0.5 ${addPrivacy ? 'bg-[#7CB342] text-white' : 'bg-gray-100'}`}>
-                    {addPrivacy && <CheckCircle2 className="w-4 h-4" />}
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-bold text-[#111111] flex items-center gap-2">
-                      <Shield className="w-4 h-4 text-purple-600" /> Domain WHOIS Privacy
-                    </h3>
-                    <p className="text-xs text-[#6B6E68] mt-1">Hide your personal information from spammers.</p>
-                  </div>
-                  <div className="text-right">
-                    <span className="font-bold text-[#111111]">${privacyPrice.toFixed(2)}</span><span className="text-xs text-[#6B6E68]">/yr</span>
-                  </div>
-                </div>
-              </div>
-
-              <Button 
-                variant="primary" 
-                className="w-full text-lg h-12 flex items-center justify-center gap-2"
-                onClick={() => setShowUpsell(false)}
-              >
-                Continue to Checkout <ArrowRight className="w-5 h-5" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <main className="flex-1 max-w-4xl mx-auto px-3 sm:px-6 py-6 sm:py-12 w-full">
         {isCompleted ? (
@@ -523,65 +462,79 @@ function CheckoutContent() {
         )
         ) : (
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Order Summary Column */}
-            <div className="md:col-span-1 space-y-4">
-              <Card elevation="surface-1" className="p-5 space-y-4 bg-[#F0F7FF] border-[#BAE6FD] rounded-2xl shadow-xs">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#0D3B85] uppercase tracking-wider">Order Summary</span>
-                  <Badge variant="info">1 Year</Badge>
-                </div>
-
-                <div>
-                  <div className="text-base font-bold font-mono text-[#0D3B85]">{domain}</div>
-                  <div className="text-xs text-[#526B88]">Domain Registration</div>
-                </div>
-
-                <div className="pt-3 border-t border-[#BAE6FD]/70 space-y-2 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-[#526B88]">Domain Price:</span>
-                    <span className="font-mono font-semibold text-[#111111]">${baseDomainPrice.toFixed(2)}</span>
-                  </div>
-                  {addHosting && (
-                    <div className="flex justify-between text-[#0D3B85]">
-                      <span>Cloud Hosting (1 Month):</span>
-                      <span className="font-mono font-semibold">+${hostingPrice.toFixed(2)}</span>
-                    </div>
-                  )}
-                  {addPrivacy && (
-                    <div className="flex justify-between text-purple-700">
-                      <span>WHOIS Privacy (1 Year):</span>
-                      <span className="font-mono font-semibold">+${privacyPrice.toFixed(2)}</span>
-                    </div>
-                  )}
-                  {passDigitalCharge && (
-                    <div className="flex justify-between text-[#526B88]">
-                      <span>Processing (2.5%):</span>
-                      <span className="font-mono text-[#111111]">+{digitalChargeFee.toLocaleString()} {currencyCode}</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="pt-3 border-t border-[#BAE6FD]/70">
-                  <div className="flex justify-between items-baseline font-bold text-[#111111]">
-                    <span className="text-[#0D3B85]">Total:</span>
-                    <div className="text-right">
-                      <div className="font-mono text-lg text-[#0D3B85]">{totalChargeLocal.toLocaleString()} {currencyCode}</div>
-                      <div className="font-mono text-[11px] text-[#526B88]">(${rawAmountUsd.toFixed(2)} USD)</div>
-                    </div>
-                  </div>
-                </div>
-              </Card>
+          <div className="space-y-8">
+            <div className="flex items-center gap-3 border-b border-[#EBEBE7] pb-4">
+              <h1 className="text-2xl font-bold text-[#111111]">Checkout</h1>
             </div>
 
-            {/* Payment Initiation Column */}
-            <div className="md:col-span-2 space-y-6">
-              <div>
-                <h1 className="text-2xl font-bold text-[#111111]">Checkout</h1>
-                <p className="text-xs text-[#6B6E68] mt-0.5">
-                  Select your payment method to complete registration.
-                </p>
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {/* LEFT COLUMN: Cart Items & Payment */}
+              <div className="md:col-span-2 space-y-8">
+                
+                {/* CART PREVIEW & ADDONS */}
+                <div className="space-y-4">
+                  <h2 className="text-lg font-bold text-[#111111]">Your Cart</h2>
+                  <div className="bg-white rounded-2xl shadow-xs border border-[#EBEBE7] overflow-hidden divide-y divide-[#EBEBE7]">
+                    
+                    {/* Domain Item */}
+                    <div className="p-6 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                      <div>
+                        <div className="inline-flex items-center gap-2 px-2 py-1 rounded bg-blue-50 text-blue-700 text-[10px] font-bold uppercase tracking-wider mb-2">
+                          Domain Registration
+                        </div>
+                        <h3 className="text-lg font-bold text-[#111111]">{domain}</h3>
+                        <p className="text-sm text-[#6B6E68]">Registration period: 1 Year</p>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-xl font-bold text-[#111111]">${baseDomainPrice.toFixed(2)}</span>
+                      </div>
+                    </div>
+
+                    {/* Add-on: Hosting */}
+                    <div className="p-4 bg-[#FAFAF9] flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                      <div className="flex items-start gap-4">
+                        <div className={`w-5 h-5 rounded border mt-0.5 flex items-center justify-center cursor-pointer transition-colors ${addHosting ? 'bg-[#0D3B85] border-[#0D3B85]' : 'bg-white border-[#DCDDD8]'}`} onClick={() => setAddHosting(!addHosting)}>
+                          {addHosting && <CheckCircle2 className="w-3 h-3 text-white" />}
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-[#111111] flex items-center gap-2 text-sm">
+                            <Server className="w-4 h-4 text-[#1B6FC9]" /> Cloud Starter Hosting
+                          </h3>
+                          <p className="text-xs text-[#6B6E68]">Add 10GB NVMe Storage to your domain.</p>
+                        </div>
+                      </div>
+                      <div className="text-right whitespace-nowrap">
+                        <span className="font-bold text-[#111111]">+${hostingPrice.toFixed(2)}</span><span className="text-xs text-[#6B6E68]">/mo</span>
+                      </div>
+                    </div>
+
+                    {/* Add-on: Privacy */}
+                    <div className="p-4 bg-[#FAFAF9] flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                      <div className="flex items-start gap-4">
+                        <div className={`w-5 h-5 rounded border mt-0.5 flex items-center justify-center cursor-pointer transition-colors ${addPrivacy ? 'bg-[#0D3B85] border-[#0D3B85]' : 'bg-white border-[#DCDDD8]'}`} onClick={() => setAddPrivacy(!addPrivacy)}>
+                          {addPrivacy && <CheckCircle2 className="w-3 h-3 text-white" />}
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-[#111111] flex items-center gap-2 text-sm">
+                            <Shield className="w-4 h-4 text-purple-600" /> Domain WHOIS Privacy
+                          </h3>
+                          <p className="text-xs text-[#6B6E68]">Hide your personal information.</p>
+                        </div>
+                      </div>
+                      <div className="text-right whitespace-nowrap">
+                        <span className="font-bold text-[#111111]">+${privacyPrice.toFixed(2)}</span><span className="text-xs text-[#6B6E68]">/yr</span>
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+
+                {/* PAYMENT SECTION */}
+                <div className="space-y-4">
+                  <div>
+                    <h2 className="text-lg font-bold text-[#111111]">Payment Details</h2>
+                    <p className="text-xs text-[#6B6E68] mt-0.5">Select your payment method.</p>
+                  </div>
 
               {/* Rails Selector */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -819,6 +772,58 @@ function CheckoutContent() {
               </Card>
             </div>
           </div>
+            
+          {/* Order Summary Column */}
+          <div className="md:col-span-1 space-y-4">
+              <Card elevation="surface-1" className="p-5 space-y-4 bg-[#F0F7FF] border-[#BAE6FD] rounded-2xl shadow-xs sticky top-8">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-[#0D3B85] uppercase tracking-wider">Order Summary</span>
+                  <Badge variant="info">1 Year</Badge>
+                </div>
+
+                <div>
+                  <div className="text-base font-bold font-mono text-[#0D3B85]">{domain}</div>
+                  <div className="text-xs text-[#526B88]">Domain Registration</div>
+                </div>
+
+                <div className="pt-3 border-t border-[#BAE6FD]/70 space-y-2 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-[#526B88]">Domain Price:</span>
+                    <span className="font-mono font-semibold text-[#111111]">${baseDomainPrice.toFixed(2)}</span>
+                  </div>
+                  {addHosting && (
+                    <div className="flex justify-between text-[#0D3B85]">
+                      <span>Cloud Hosting (1 Month):</span>
+                      <span className="font-mono font-semibold">+${hostingPrice.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {addPrivacy && (
+                    <div className="flex justify-between text-purple-700">
+                      <span>WHOIS Privacy (1 Year):</span>
+                      <span className="font-mono font-semibold">+${privacyPrice.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {passDigitalCharge && (
+                    <div className="flex justify-between text-[#526B88]">
+                      <span>Processing (2.5%):</span>
+                      <span className="font-mono text-[#111111]">+{digitalChargeFee.toLocaleString()} {currencyCode}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-3 border-t border-[#BAE6FD]/70">
+                  <div className="flex justify-between items-baseline font-bold text-[#111111]">
+                    <span className="text-[#0D3B85]">Total:</span>
+                    <div className="text-right">
+                      <div className="font-mono text-lg text-[#0D3B85]">{totalChargeLocal.toLocaleString()} {currencyCode}</div>
+                      <div className="font-mono text-[11px] text-[#526B88]">(${rawAmountUsd.toFixed(2)} USD)</div>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </div>
+        </div>
         )}
       </main>
 

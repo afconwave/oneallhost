@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button, Badge } from '@oneallhost/ui';
-import { User, ShieldCheck, KeyRound, Smartphone, Mail, Globe, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
+import { User, ShieldCheck, KeyRound, Smartphone, Mail, Globe, CheckCircle2, AlertCircle, RefreshCw, Clock } from 'lucide-react';
 
 interface UserProfile {
   id: string;
@@ -237,11 +237,19 @@ export default function ProfileManagementPage() {
               <div className="space-y-1">
                 <div className="text-xs font-bold text-[#111111]">Account Verification PIN</div>
                 <p className="text-xs text-[#6B6E68]">
-                  Provide this 4-digit PIN to our support agents when requested. They will use this to securely access and assist with your account.
+                  Provide this 6-digit PIN to our support agents when requested. They will use this to securely access and assist with your account.
                 </p>
+                <div className="text-[10px] text-orange-600 flex items-center gap-1 mt-1">
+                  <Clock className="w-3 h-3" /> Auto-rotates every 24 hours for security.
+                </div>
               </div>
-              <div className="px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg text-lg font-mono font-bold tracking-widest text-[#0D3B85] shrink-0">
-                {profile.supportPin || '****'}
+              <div className="flex flex-col items-end gap-2">
+                <div className="px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg text-xl font-mono font-bold tracking-[0.25em] text-[#0D3B85] shrink-0">
+                  {profile.supportPin || '******'}
+                </div>
+                <Button variant="outline" size="sm" className="text-[10px] h-6 px-2 gap-1 text-[#6B6E68]">
+                  <RefreshCw className="w-3 h-3" /> Refresh Now
+                </Button>
               </div>
             </div>
           </div>

@@ -15,8 +15,8 @@ export default function AdminOverviewPage() {
     setError(null);
     try {
       const [statsRes, logsRes] = await Promise.all([
-        fetch('http://localhost:4000/api/v1/admin/stats'),
-        fetch('http://localhost:4000/api/v1/admin/audit-logs'),
+        fetch('/api/admin/stats'),
+        fetch('/api/admin/audit-logs'),
       ]);
 
       if (!statsRes.ok || !logsRes.ok) {

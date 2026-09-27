@@ -8,8 +8,8 @@
     "start": "node dist/apps/api/src/server.js"
   },
   "dependencies": {
-    "@oneallhost/db": "workspace:*",
-    "@oneallhost/payments": "workspace:*",
+    "@oneallhost/db": "*",
+    "@oneallhost/payments": "*",
     "@supabase/supabase-js": "^2.112.3",
     "@types/node": "^22.13.1",
     "cors": "^2.8.5",

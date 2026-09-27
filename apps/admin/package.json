@@ -9,10 +9,10 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@oneallhost/config": "*",
-    "@oneallhost/db": "*",
-    "@oneallhost/payments": "*",
-    "@oneallhost/ui": "*",
+    "@oneallhost/config": "workspace:*",
+    "@oneallhost/db": "workspace:*",
+    "@oneallhost/payments": "workspace:*",
+    "@oneallhost/ui": "workspace:*",
     "@supabase/supabase-js": "^2.49.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.16.0",

@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: oneallhost-api
+    runtime: node
+    rootDir: .
+    buildCommand: npm install -g pnpm && pnpm install --frozen-lockfile && pnpm --filter @oneallhost/api build
+    startCommand: node apps/api/dist/apps/api/src/server.js
+    envVars:
+      - key: NODE_ENV
+        value: production

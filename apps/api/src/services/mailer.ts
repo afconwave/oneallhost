@@ -9,7 +9,7 @@ export interface EmailOptions {
 }
 
 export class MailerService {
-  private transporter: nodemailer.Transporter | null = null;
+  private transporter: any = null;
   private fromAddress: string;
 
   constructor() {

@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)  
   
 **Oneallhost** is a high-performance, ICANN-compliant domain registrar, cloud hosting, and staging infrastructure platform purpose-built for African and global entrepreneurs. It bridges international top-level domains (gTLDs, ccTLDs) with seamless African Mobile Money rails (MTN MoMo, Orange Money, Wave), Anycast DNS routing, developer staging rentals with 100% purchase rebates, and automated account wallets.
-
+ 
 ---   
  
 ## 1. Monorepo Architecture

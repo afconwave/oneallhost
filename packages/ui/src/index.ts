@@ -6,3 +6,4 @@ export * from './Badge';
 export * from './Table';
 export * from './Toast';
 export * from './NotificationDrawer';
+export * from './ConfirmModal';

@@ -1,29 +1,16 @@
 import React from 'react';
 import Link from 'next/link';
-import { BrandLogo, Button, Card } from '@oneallhost/ui';
-import { ArrowLeft } from 'lucide-react';
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen bg-white flex flex-col justify-center items-center px-4">
-      <div className="max-w-md w-full text-center space-y-6">
-        <BrandLogo variant="mark-only" height={44} className="mx-auto" />
-
-        <div>
-          <div className="font-mono text-xs text-[#0D3B85] uppercase tracking-wider">Error 404</div>
-          <h1 className="mt-2 text-xl font-medium text-[#111111]">Page Not Found</h1>
-          <p className="mt-2 text-xs text-[#6B6E68] leading-relaxed">
-            The requested route does not exist or has been relocated to another path.
-          </p>
-        </div>
-
-        <div className="pt-2">
-          <Link href="/">
-            <Button variant="primary" size="md" className="gap-2">
-              <ArrowLeft className="w-4 h-4" />
-              <span>Return to homepage</span>
-            </Button>
-          </Link>
+    <div className="min-h-screen bg-[#F6F7F5] flex items-center justify-center px-4">
+      <div className="w-full max-w-[340px] rounded-[28px] bg-white shadow-[0_18px_50px_rgba(9,31,68,0.12)] p-8 text-center">
+        <div className="mx-auto mb-4 w-14 h-14 rounded-full bg-[#E8EEF8] text-[#0D3B85] flex items-center justify-center text-lg font-black">404</div>
+        <h1 className="text-[17px] font-extrabold text-[#111111]">Page not found</h1>
+        <p className="mt-2 text-[12px] text-[#8A8F88] leading-relaxed">That link does not exist, or it moved.</p>
+        <div className="mt-5 grid grid-cols-2 gap-2.5">
+          <Link href="/support" className="h-11 rounded-full border border-[#E4E4E0] text-sm font-semibold leading-[2.75rem]">Support</Link>
+          <Link href="/" className="h-11 rounded-full bg-[#0D3B85] text-white text-sm font-semibold leading-[2.75rem]">Home</Link>
         </div>
       </div>
     </div>

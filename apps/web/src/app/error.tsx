@@ -1,34 +1,19 @@
 'use client';
 
 import React from 'react';
-import { BrandLogo, Button } from '@oneallhost/ui';
-import { RotateCcw } from 'lucide-react';
 
-export default function Error({
-  error,
-  reset,
-}: {
-  error: Error & { digest?: string };
-  reset: () => void;
-}) {
+export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   return (
-    <div className="min-h-screen bg-white flex flex-col justify-center items-center px-4">
-      <div className="max-w-md w-full text-center space-y-6">
-        <BrandLogo variant="mark-only" height={44} className="mx-auto" />
-
-        <div>
-          <div className="font-mono text-xs text-red-600 uppercase tracking-wider">Service Exception</div>
-          <h1 className="mt-2 text-xl font-medium text-[#111111]">Action Could Not Complete</h1>
-          <p className="mt-2 text-xs text-[#6B6E68] leading-relaxed">
-            The system encountered an error executing this request. Please retry or contact support if the issue persists.
-          </p>
-        </div>
-
-        <div className="pt-2">
-          <Button variant="primary" size="md" className="gap-2" onClick={() => reset()}>
-            <RotateCcw className="w-4 h-4" />
-            <span>Retry action</span>
-          </Button>
+    <div className="min-h-screen bg-[#F6F7F5] flex items-center justify-center px-4">
+      <div className="w-full max-w-[340px] rounded-[28px] bg-white shadow-[0_18px_50px_rgba(9,31,68,0.12)] p-8 text-center">
+        <div className="mx-auto mb-4 w-14 h-14 rounded-full bg-[#FDECEC] text-[#E53935] flex items-center justify-center text-2xl font-black">!</div>
+        <h1 className="text-[17px] font-extrabold text-[#111111]">Something went wrong</h1>
+        <p className="mt-2 text-[12px] text-[#8A8F88] leading-relaxed">
+          {error.message && error.message.length < 140 ? error.message : 'This request could not finish. Try again.'}
+        </p>
+        <div className="mt-5 grid grid-cols-2 gap-2.5">
+          <a href="/support" className="h-11 rounded-full border border-[#E4E4E0] text-sm font-semibold leading-[2.75rem]">Support</a>
+          <button type="button" onClick={() => reset()} className="h-11 rounded-full bg-[#0D3B85] text-white text-sm font-semibold">Retry</button>
         </div>
       </div>
     </div>

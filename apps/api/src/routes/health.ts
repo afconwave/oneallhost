@@ -8,10 +8,10 @@ healthRouter.get('/', (req: Request, res: Response) => {
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
     services: {
-      resellerclub_api: 'online (latency: 42ms)',
-      altonixa_pay: 'online (latency: 18ms)',
-      redis_queue: 'connected (jobs: 0 pending)',
-      smtp_relay: 'ready',
+      supabase: Boolean(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL),
+      namecheap: Boolean(process.env.NAMECHEAP_API_KEY),
+      swychr: Boolean(process.env.SWYCHR_API_KEY),
+      smtp: Boolean(process.env.SMTP_HOST),
     },
   });
 });

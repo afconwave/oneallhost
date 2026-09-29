@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { domainRouter } from './routes/domains';
@@ -12,19 +13,33 @@ import { hostingRouter } from './routes/hosting';
 import ticketsRouter from './routes/tickets';
 import { createRateLimiter } from './middleware/rate-limiter';
 import { idempotencyMiddleware } from './middleware/idempotency';
+import { requireStaff } from './middleware/auth';
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-app.use(cors());
-app.use(express.json());
+app.set('trust proxy', 1);
+
+const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:3000,http://localhost:3001,https://oneallhost.vercel.app')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+      return callback(null, true);
+    }
+    return callback(new Error('Origin not allowed by CORS'));
+  },
+  credentials: true,
+}));
+app.use(express.json({ limit: '256kb' }));
 app.use(idempotencyMiddleware);
 
-// Security Headers Middleware (Protection against XSS, Clickjacking, MIME sniffing, etc.)
 app.use((req: Request, res: Response, next: NextFunction) => {
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   if (req.secure || req.headers['x-forwarded-proto'] === 'https') {
@@ -33,15 +48,13 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-// Global Rate Limiting: 120 requests per minute per IP (Spec §8i)
 app.use(createRateLimiter({ maxRequests: 120, windowMs: 60 * 1000 }));
 
-// Router for API Version 1 (v1)
 const v1Router = express.Router();
 v1Router.use('/users', userRouter);
-v1Router.use('/admin', adminRouter);
+v1Router.use('/admin', requireStaff, adminRouter);
 v1Router.use('/domains', domainRouter);
-v1Router.use('/tools', toolsRouter);
+v1Router.use('/tools', createRateLimiter({ maxRequests: 30, windowMs: 60 * 1000 }), toolsRouter);
 v1Router.use('/rentals', rentalRouter);
 v1Router.use('/payments', paymentRouter);
 v1Router.use('/invoices', invoiceRouter);
@@ -49,13 +62,9 @@ v1Router.use('/health', healthRouter);
 v1Router.use('/hosting', hostingRouter);
 v1Router.use('/tickets', ticketsRouter);
 
-// Mount versioned endpoint `/api/v1` as the primary standard
 app.use('/api/v1', v1Router);
-
-// Backwards-compatibility alias for `/api/*`
 app.use('/api', v1Router);
 
-// Production Global Safe Error Handler (Never expose stack traces to client)
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   const statusCode = err.status || err.statusCode || 500;
   return res.status(statusCode).json({
@@ -69,16 +78,10 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 app.get('/', (req: Request, res: Response) => {
   res.json({
     name: 'Oneallhost Backend API Gateway',
-    version: '1.0.0',
+    version: '1.1.0',
     current_version: 'v1',
     endpoints: {
       v1_base: '/api/v1',
-      users: '/api/v1/users',
-      admin: '/api/v1/admin',
-      domains: '/api/v1/domains',
-      rentals: '/api/v1/rentals',
-      payments: '/api/v1/payments',
-      invoices: '/api/v1/invoices',
       health: '/api/v1/health',
     },
   });

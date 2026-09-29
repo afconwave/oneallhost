@@ -23,16 +23,48 @@ const app = express();
 const PORT = Number(process.env.PORT || 4000);
 app.set('trust proxy', 1);
 
-const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:3000,http://localhost:3001,https://oneallhost.vercel.app')
-  .split(',').map((s) => s.trim()).filter(Boolean);
+const extraOrigins = (process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map((s) => s.trim().replace(/\/$/, ''))
+  .filter(Boolean);
+
+const defaultOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:3001',
+  'https://oneallhost.com',
+  'https://www.oneallhost.com',
+  'https://admin.oneallhost.com',
+  'https://api.oneallhost.com',
+  'https://oneallhost.vercel.app',
+];
+
+function originAllowed(origin?: string | null): boolean {
+  if (!origin) return true;
+  const clean = origin.replace(/\/$/, '');
+  if (extraOrigins.includes('*')) return true;
+  if (defaultOrigins.includes(clean) || extraOrigins.includes(clean)) return true;
+  try {
+    const host = new URL(clean).hostname;
+    if (host === 'oneallhost.com' || host.endsWith('.oneallhost.com')) return true;
+    if (host.endsWith('.vercel.app') && host.includes('oneallhost')) return true;
+    if (host.endsWith('.onrender.com') && host.includes('oneallhost')) return true;
+  } catch {
+    return false;
+  }
+  return false;
+}
 
 app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) return callback(null, true);
-    return callback(new Error('Origin not allowed by CORS'));
-  },
+  origin: (origin, callback) => callback(null, originAllowed(origin)),
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Idempotency-Key', 'X-Webhook-Secret'],
+  maxAge: 86400,
 }));
+app.options('*', cors());
+
 app.use(express.json({ limit: '256kb' }));
 app.use(idempotencyMiddleware);
 app.use((_req, res, next) => {
@@ -72,7 +104,7 @@ app.use('/api/v1', v1Router);
 app.use('/api', v1Router);
 
 app.get('/', (_req: Request, res: Response) => {
-  res.json({ name: 'Oneallhost Backend API Gateway', version: '1.4.1', current_version: 'v1' });
+  res.json({ name: 'Oneallhost Backend API Gateway', version: '1.4.2', current_version: 'v1' });
 });
 
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

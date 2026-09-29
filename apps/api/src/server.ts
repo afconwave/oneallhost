@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { domainRouter } from './routes/domains';
+import { registerDomainPaid } from './routes/domain-register';
 import { rentalRouter } from './routes/rentals';
 import { paymentRouter } from './routes/payments';
 import { invoiceRouter } from './routes/invoices';
@@ -37,14 +38,11 @@ app.use(cors({
 app.use(express.json({ limit: '256kb' }));
 app.use(idempotencyMiddleware);
 
-app.use((req: Request, res: Response, next: NextFunction) => {
+app.use((_req: Request, res: Response, next: NextFunction) => {
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-  if (req.secure || req.headers['x-forwarded-proto'] === 'https') {
-    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-  }
   next();
 });
 
@@ -62,6 +60,7 @@ function requireAuthForDomainWrites(req: Request, res: Response, next: NextFunct
 const v1Router = express.Router();
 v1Router.use('/users', userRouter);
 v1Router.use('/admin', requireStaff, adminRouter);
+v1Router.post('/domains/register', requireAuth, registerDomainPaid);
 v1Router.use('/domains', requireAuthForDomainWrites, domainRouter);
 v1Router.use('/tools', createRateLimiter({ maxRequests: 30, windowMs: 60 * 1000 }), toolsRouter);
 v1Router.use('/rentals', rentalRouter);
@@ -74,7 +73,7 @@ v1Router.use('/tickets', ticketsRouter);
 app.use('/api/v1', v1Router);
 app.use('/api', v1Router);
 
-app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   const statusCode = err.status || err.statusCode || 500;
   return res.status(statusCode).json({
     success: false,
@@ -84,16 +83,8 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   });
 });
 
-app.get('/', (req: Request, res: Response) => {
-  res.json({
-    name: 'Oneallhost Backend API Gateway',
-    version: '1.1.0',
-    current_version: 'v1',
-    endpoints: {
-      v1_base: '/api/v1',
-      health: '/api/v1/health',
-    },
-  });
+app.get('/', (_req: Request, res: Response) => {
+  res.json({ name: 'Oneallhost Backend API Gateway', version: '1.2.0', current_version: 'v1' });
 });
 
 if (process.env.NODE_ENV !== 'test') {

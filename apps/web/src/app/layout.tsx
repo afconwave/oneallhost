@@ -1,15 +1,24 @@
 import './globals.css';
 import './print.css';
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Toaster } from '@oneallhost/ui';
 import { JsonLd } from '../components/seo/JsonLd';
 import { ProductReel } from '../components/ProductReel';
+import { ConfirmHost } from '../components/ConfirmHost';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://oneallhost.com'),
   title: 'Oneallhost — Domain Registration, Subdomain Leasing & Cloud Hosting',
   description:
     'Unified ICANN domain registrar, flexible staging subdomain rentals, and high-performance cloud hosting with native Mobile Money and Card settlement.',
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: 'cover',
+  themeColor: '#091F44',
 };
 
 export default function RootLayout({
@@ -30,9 +39,10 @@ export default function RootLayout({
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossOrigin="anonymous" />
       </head>
-      <body className="min-h-screen bg-surface-0 text-ink font-sans antialiased selection:bg-brand-blue selection:text-white">
+      <body className="min-h-screen overflow-x-hidden bg-surface-0 text-ink font-sans antialiased selection:bg-brand-blue selection:text-white">
         {children}
         <ProductReel context="checkout" />
+        <ConfirmHost />
         <Toaster />
       </body>
     </html>

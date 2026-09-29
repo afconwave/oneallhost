@@ -16,5 +16,4 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @oneallhost/db build
       - run: pnpm --filter @oneallhost/payments build
-      - run: pnpm --filter @oneallhost/api exec tsc --noEmit || true
       - run: pnpm typecheck

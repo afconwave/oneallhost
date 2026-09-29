@@ -6,13 +6,14 @@
     "dev": "next dev -p 3000",
     "build": "next build",
     "start": "next start -p 3000",
-    "lint": "next lint"
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@oneallhost/config": "*",
-    "@oneallhost/db": "*",
-    "@oneallhost/payments": "*",
-    "@oneallhost/ui": "*",
+    "@oneallhost/config": "workspace:*",
+    "@oneallhost/db": "workspace:*",
+    "@oneallhost/payments": "workspace:*",
+    "@oneallhost/ui": "workspace:*",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.49.1",
     "clsx": "^2.1.1",

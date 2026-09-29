@@ -20,7 +20,7 @@ import { idempotencyMiddleware } from './middleware/idempotency';
 import { requireAuth, requireStaff } from './middleware/auth';
 
 const app = express();
-const PORT = process.env.PORT || 4000;
+const PORT = Number(process.env.PORT || 4000);
 app.set('trust proxy', 1);
 
 const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:3000,http://localhost:3001,https://oneallhost.vercel.app')
@@ -72,10 +72,20 @@ app.use('/api/v1', v1Router);
 app.use('/api', v1Router);
 
 app.get('/', (_req: Request, res: Response) => {
-  res.json({ name: 'Oneallhost Backend API Gateway', version: '1.4.0', current_version: 'v1' });
+  res.json({ name: 'Oneallhost Backend API Gateway', version: '1.4.1', current_version: 'v1' });
+});
+
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  const statusCode = err.status || err.statusCode || 500;
+  return res.status(statusCode).json({
+    success: false,
+    error: process.env.NODE_ENV === 'production' && statusCode === 500
+      ? 'An internal server error occurred.'
+      : err.message || 'Internal Server Error',
+  });
 });
 
 if (process.env.NODE_ENV !== 'test') {
-  app.listen(PORT, () => console.log(`[Oneallhost API] v1 on :${PORT}`));
+  app.listen(PORT, '0.0.0.0', () => console.log(`[Oneallhost API] v1 on 0.0.0.0:${PORT}`));
 }
 export default app;

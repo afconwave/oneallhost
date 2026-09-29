@@ -1,0 +1,1 @@
+export const DOMAIN_MUTATIONS_REQUIRE_AUTH = true;

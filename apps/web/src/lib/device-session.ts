@@ -20,11 +20,22 @@ export async function rememberThisDevice() {
   });
 }
 
-export async function resumeWithOtp(email: string, otp: string, expiredToken?: string) {
+export async function requestEmailOtp(email: string) {
+  const res = await fetch('/api/sessions/challenge', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, deviceId: getDeviceId() }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Could not send email code');
+  return data;
+}
+
+export async function resumeWithOtp(email: string, otp: string) {
   const res = await fetch('/api/sessions/resume', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, deviceId: getDeviceId(), otp, expiredToken }),
+    body: JSON.stringify({ email, deviceId: getDeviceId(), otp }),
   });
   const data = await res.json();
   if (!res.ok || !data.token) throw new Error(data.error || 'OTP resume failed');

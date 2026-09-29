@@ -1,0 +1,18 @@
+@media print {
+  header, footer, nav, aside, .print\\:hidden, [data-print-hide] {
+    display: none !important;
+  }
+  body {
+    background: #fff !important;
+    color: #111 !important;
+    font-size: 12pt;
+  }
+  .print-sheet {
+    break-inside: avoid;
+    box-shadow: none !important;
+    border: 1px solid #ccc !important;
+  }
+  a[href]::after {
+    content: none !important;
+  }
+}

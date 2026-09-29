@@ -1,17 +1,28 @@
 import { Router, Request, Response } from 'express';
 import { db } from '@oneallhost/db';
+import { hashPassword, verifyPassword, generateTotpSecret, verifyTotpCode } from '../utils/crypto';
+import { publicUser, requireAuth, signAuthToken } from '../middleware/auth';
 
 export const userRouter = Router();
 
-// 1. User Registration
-userRouter.post('/register', async (req: Request, res: Response) => {
-  const { name, firstName, lastName, email, username, phone, countryCode = 'CM' } = req.body;
-  const fullName = name || [firstName, lastName].filter(Boolean).join(' ') || username || 'Account Owner';
-  const targetEmail = (email || username || '').trim();
-
-  if (!targetEmail) {
-    return res.status(400).json({ error: 'Email is required' });
+function passwordValid(password: string): string | null {
+  if (!password || password.length < 10) return 'Password must be at least 10 characters';
+  if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
+    return 'Password must include upper, lower, and numeric characters';
   }
+  return null;
+}
+
+userRouter.post('/register', async (req: Request, res: Response) => {
+  const { name, firstName, lastName, email, username, phone, countryCode = 'CM', password } = req.body;
+  const fullName = name || [firstName, lastName].filter(Boolean).join(' ') || username || 'Account Owner';
+  const targetEmail = String(email || username || '').trim().toLowerCase();
+
+  if (!targetEmail || !targetEmail.includes('@')) {
+    return res.status(400).json({ error: 'A valid email is required' });
+  }
+  const pwdError = passwordValid(String(password || ''));
+  if (pwdError) return res.status(400).json({ error: pwdError });
 
   const existing = await db.usersRepo.findByEmail(targetEmail);
   if (existing) {
@@ -25,207 +36,153 @@ userRouter.post('/register', async (req: Request, res: Response) => {
     countryCode,
     preferredCurrency: 'USD',
     twoFactorEnabled: false,
-    kycStatus: 'verified',
+    kycStatus: 'unverified',
+    passwordHash: hashPassword(password),
   });
 
   return res.status(201).json({
     success: true,
-    user: newUser,
-    token: `onh_jwt_${newUser.id}_${Date.now()}`,
+    user: publicUser(newUser),
+    token: signAuthToken(newUser),
   });
 });
 
-// 2. User Login
 userRouter.post('/login', async (req: Request, res: Response) => {
-  const { email, username, twoFactorCode } = req.body;
-  const targetEmail = (email || username || '').trim();
-
-  if (!targetEmail) {
-    return res.status(400).json({ error: 'Email or username is required' });
+  const { email, username, password, twoFactorCode } = req.body;
+  const targetEmail = String(email || username || '').trim().toLowerCase();
+  if (!targetEmail || !password) {
+    return res.status(400).json({ error: 'Email and password are required' });
   }
 
-  let user = await db.usersRepo.findByEmail(targetEmail);
-  if (!user) {
-    // If not found, auto-create account for seamless demo / test access
-    user = await db.usersRepo.create({
-      name: targetEmail.split('@')[0],
-      email: targetEmail,
-      phone: '',
-      countryCode: 'CM',
-      preferredCurrency: 'USD',
-      twoFactorEnabled: false,
-      kycStatus: 'verified',
-    });
+  const user = await db.usersRepo.findByEmail(targetEmail);
+  if (!user || !user.passwordHash || !verifyPassword(String(password), user.passwordHash)) {
+    return res.status(401).json({ error: 'Invalid email or password' });
+  }
+  if (user.status !== 'active') {
+    return res.status(403).json({ error: 'Account is not active' });
   }
 
-  if (user.twoFactorEnabled && !twoFactorCode) {
-    return res.json({ requires2FA: true, message: 'Enter 6-digit authenticator code' });
-  }
-
-  await db.auditLogsRepo.log('USER_LOGIN', user.email, `Session login for ${user.id}`);
-
-  return res.json({
-    success: true,
-    user,
-    token: `onh_jwt_${user.id}_${Date.now()}`,
-  });
-});
-
-const resolveUser = async (req: Request) => {
-  const authHeader = req.headers.authorization;
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    const token = authHeader.replace('Bearer ', '').trim();
-    const match = token.match(/^onh_jwt_(usr-[a-zA-Z0-9_-]+)/);
-    const userId = match ? match[1] : null;
-    if (userId) {
-      const user = await db.usersRepo.findById(userId);
-      if (user) return user;
+  if (user.twoFactorEnabled) {
+    if (!twoFactorCode) {
+      return res.json({ requires2FA: true, message: 'Enter 6-digit authenticator code' });
+    }
+    if (!user.totpSecret || !verifyTotpCode(user.totpSecret, String(twoFactorCode))) {
+      return res.status(401).json({ error: 'Invalid authenticator code' });
     }
   }
 
-  const headerUserId = (req.headers['x-user-id'] as string) || (req.query.userId as string);
-  if (headerUserId) {
-    const user = await db.usersRepo.findById(headerUserId);
-    if (user) return user;
-  }
-
-  const users = await db.usersRepo.list();
-  return users.length > 0 ? users[0] : null;
-};
-
-// 3. Get Current User Profile
-userRouter.get('/me', async (req: Request, res: Response) => {
-  const targetUser = await resolveUser(req);
-
-  if (!targetUser) {
-    return res.status(404).json({ success: false, error: 'User profile not found', user: null });
-  }
-
-  return res.json({ success: true, user: targetUser });
+  await db.auditLogsRepo.log('USER_LOGIN', user.email, `Session login for ${user.id}`);
+  return res.json({
+    success: true,
+    user: publicUser(user),
+    token: signAuthToken(user),
+  });
 });
 
-// 4. Update Profile
+userRouter.use(requireAuth);
+
+userRouter.get('/me', async (req: Request, res: Response) => {
+  return res.json({ success: true, user: publicUser((req as any).user) });
+});
+
 userRouter.put('/me', async (req: Request, res: Response) => {
   const { name, phone, preferredCurrency } = req.body;
-  const user = await resolveUser(req);
-  if (!user) return res.status(404).json({ error: 'User not found' });
-
+  const user = (req as any).user;
   const updated = await db.usersRepo.update(user.id, {
     ...(name ? { name } : {}),
     ...(phone ? { phone } : {}),
     ...(preferredCurrency ? { preferredCurrency } : {}),
   });
-
-  return res.json({ success: true, user: updated });
+  return res.json({ success: true, user: updated ? publicUser(updated) : publicUser(user) });
 });
 
-// 5. Toggle / Enable 2FA TOTP
 userRouter.post('/2fa/enable', async (req: Request, res: Response) => {
-  const user = await resolveUser(req);
-  if (!user) return res.status(404).json({ error: 'User not found' });
+  const user = (req as any).user;
+  const secret = generateTotpSecret();
+  await db.usersRepo.update(user.id, { totpSecret: secret, twoFactorEnabled: false });
+  return res.json({
+    success: true,
+    secret,
+    qrCodeUri: `otpauth://totp/Oneallhost:${user.email}?secret=${secret}&issuer=Oneallhost`,
+    message: 'Scan the secret with an authenticator app, then call /2fa/confirm',
+  });
+});
 
+userRouter.post('/2fa/confirm', async (req: Request, res: Response) => {
+  const user = await db.usersRepo.findById((req as any).user.id);
+  const code = String(req.body?.code || '');
+  if (!user?.totpSecret || !verifyTotpCode(user.totpSecret, code)) {
+    return res.status(400).json({ error: 'Invalid authenticator code' });
+  }
   await db.usersRepo.update(user.id, { twoFactorEnabled: true });
   await db.auditLogsRepo.log('2FA_ENABLED', user.email, 'TOTP Authenticator activated');
-
-  return res.json({
-    success: true,
-    secret: 'JBSWY3DPEHPK3PXP',
-    qrCodeUri: `otpauth://totp/Oneallhost:${user.email}?secret=JBSWY3DPEHPK3PXP&issuer=Oneallhost`,
-    message: '2FA enabled successfully',
-  });
+  return res.json({ success: true, message: '2FA enabled successfully' });
 });
 
-// 6. Get User Registered Domains
 userRouter.get('/domains', async (req: Request, res: Response) => {
-  const user = await resolveUser(req);
-  const domains = await db.domainsRepo.list(user?.id);
-  return res.json({
-    success: true,
-    domains,
-  });
+  const user = (req as any).user;
+  const domains = await db.domainsRepo.list(user.id);
+  return res.json({ success: true, domains });
 });
 
-// 7. Get User Subdomain Leases
 userRouter.get('/rentals', async (req: Request, res: Response) => {
-  const user = await resolveUser(req);
-  const rentals = await db.rentalsRepo.list(user?.id);
-  return res.json({
-    success: true,
-    rentals,
-  });
+  const user = (req as any).user;
+  const rentals = await db.rentalsRepo.list(user.id);
+  return res.json({ success: true, rentals });
 });
 
-// 8. Get User Invoices / Payments
 userRouter.get('/invoices', async (req: Request, res: Response) => {
-  const user = await resolveUser(req);
-  const payments = await db.paymentsRepo.list(user?.id);
-  return res.json({
-    success: true,
-    invoices: payments,
-  });
+  const user = (req as any).user;
+  const payments = await db.paymentsRepo.list(user.id);
+  return res.json({ success: true, invoices: payments });
 });
 
-// 9. Get User Notifications
 userRouter.get('/notifications', async (req: Request, res: Response) => {
-  const user = await resolveUser(req);
-  const userPayments = await db.paymentsRepo.list(user?.id);
-  
+  const user = (req as any).user;
+  const userPayments = await db.paymentsRepo.list(user.id);
   const computedNotifications = userPayments.slice(0, 5).map((p, idx) => ({
     id: `notif-${p.id}`,
     type: 'payment_success',
-    title: 'Payment Confirmed',
-    message: `Payment of ${p.amountXaf.toLocaleString()} XAF for ${p.item} confirmed.`,
+    title: p.status === 'settled' || p.status === 'completed' ? 'Payment Confirmed' : 'Payment Update',
+    message: `Payment of ${p.amountXaf.toLocaleString()} XAF for ${p.item} is ${p.status}.`,
     time: p.timestamp,
     read: idx > 0,
   }));
-
-  return res.json({
-    success: true,
-    notifications: computedNotifications,
-  });
+  return res.json({ success: true, notifications: computedNotifications });
 });
 
-// 10. Top-Up Wallet Balance
 userRouter.post('/wallet/topup', async (req: Request, res: Response) => {
+  const user = (req as any).user;
   const { amountUsd, amountXaf, paymentMethod = 'MTN Mobile Money', reference } = req.body;
-  const user = await resolveUser(req);
-  if (!user) return res.status(404).json({ error: 'User not found' });
-
   const numUsd = Number(amountUsd);
   const numXaf = Number(amountXaf) || Math.round(numUsd * 615.5);
-
   if (isNaN(numUsd) || numUsd <= 0) {
     return res.status(400).json({ error: 'Invalid top-up amount' });
   }
 
-  const updatedUser = await db.usersRepo.topupBalance(user.id, numUsd, numXaf);
   const txnRef = reference || `ONH-TOPUP-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
-
   await db.paymentsRepo.create({
     userId: user.id,
     client: user.name,
     method: paymentMethod,
     amountUsd: numUsd,
     amountXaf: numXaf,
-    status: 'settled',
+    status: 'pending',
     item: `Account Wallet Top-Up ($${numUsd.toFixed(2)} USD)`,
     reference: txnRef,
   });
 
   return res.json({
     success: true,
-    message: `Successfully added $${numUsd.toFixed(2)} USD to account wallet`,
-    user: updatedUser,
+    pending: true,
+    message: 'Top-up recorded as pending. Balance credits after a verified payment webhook.',
     transactionReference: txnRef,
   });
 });
 
-// 11. Pay using Account Balance
 userRouter.post('/wallet/pay', async (req: Request, res: Response) => {
+  const user = (req as any).user;
   const { amountUsd, item = 'Domain Registration', reference } = req.body;
-  const user = await resolveUser(req);
-  if (!user) return res.status(404).json({ error: 'User not found' });
-
   const numUsd = Number(amountUsd);
   if (isNaN(numUsd) || numUsd <= 0) {
     return res.status(400).json({ error: 'Invalid payment amount' });
@@ -233,8 +190,7 @@ userRouter.post('/wallet/pay', async (req: Request, res: Response) => {
 
   const numXaf = Math.round(numUsd * 615.5);
   const debitResult = await db.usersRepo.debitBalance(user.id, numUsd, numXaf);
-
-  if (!debitResult.success) {
+  if (!debitResult.success || !debitResult.user) {
     return res.status(400).json({
       error: debitResult.error || 'Insufficient wallet balance',
       currentBalanceUsd: user.balanceUsd,
@@ -243,7 +199,6 @@ userRouter.post('/wallet/pay', async (req: Request, res: Response) => {
   }
 
   const txnRef = reference || `ONH-BAL-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
-
   const paymentRecord = await db.paymentsRepo.create({
     userId: user.id,
     client: user.name,
@@ -251,32 +206,26 @@ userRouter.post('/wallet/pay', async (req: Request, res: Response) => {
     amountUsd: numUsd,
     amountXaf: numXaf,
     status: 'settled',
-    item: item,
+    item,
     reference: txnRef,
   });
 
   return res.json({
     success: true,
     message: `Payment of $${numUsd.toFixed(2)} settled from account balance`,
-    user: debitResult.user,
+    user: publicUser(debitResult.user),
     payment: paymentRecord,
   });
 });
 
-// 12. Toggle / Update Auto-Debit Setting
 userRouter.put('/wallet/auto-debit', async (req: Request, res: Response) => {
-  const { enabled } = req.body;
-  const user = await resolveUser(req);
-  if (!user) return res.status(404).json({ error: 'User not found' });
-
-  const isEnabled = Boolean(enabled);
+  const user = (req as any).user;
+  const isEnabled = Boolean(req.body.enabled);
   const updated = await db.usersRepo.update(user.id, { autoDebitEnabled: isEnabled });
   await db.auditLogsRepo.log('AUTO_DEBIT_UPDATED', user.email, `Auto-debit status set to ${isEnabled}`);
-
   return res.json({
     success: true,
     autoDebitEnabled: isEnabled,
-    user: updated,
+    user: updated ? publicUser(updated) : publicUser(user),
   });
 });
-

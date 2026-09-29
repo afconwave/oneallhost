@@ -24,7 +24,7 @@ function b64url(input: Buffer | string): string {
   return Buffer.from(input).toString('base64url');
 }
 
-export function signAuthToken(user: UserRecord, ttlSeconds = 60 * 60 * 12): string {
+export function signAuthToken(user: UserRecord, ttlSeconds = 60 * 60): string {
   const now = Math.floor(Date.now() / 1000);
   const payload: AuthTokenPayload = {
     sub: user.id,
@@ -61,11 +61,7 @@ export function verifyAuthToken(token: string): AuthTokenPayload | null {
 }
 
 export function publicUser(user: UserRecord) {
-  const {
-    passwordHash,
-    totpSecret,
-    ...safe
-  } = user as UserRecord & { passwordHash?: string; totpSecret?: string };
+  const { passwordHash, totpSecret, ...safe } = user as UserRecord & { passwordHash?: string; totpSecret?: string };
   return safe;
 }
 
@@ -84,12 +80,12 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   try {
     const user = await resolveAuthenticatedUser(req);
     if (!user) {
-      return res.status(401).json({ success: false, error: 'Authentication required' });
+      return res.status(401).json({ success: false, error: 'Authentication required', code: 'SESSION_EXPIRED' });
     }
     (req as any).user = user;
     return next();
   } catch (err: any) {
-    return res.status(401).json({ success: false, error: err.message || 'Authentication failed' });
+    return res.status(401).json({ success: false, error: err.message || 'Authentication failed', code: 'SESSION_EXPIRED' });
   }
 }
 
@@ -97,7 +93,7 @@ export async function requireStaff(req: Request, res: Response, next: NextFuncti
   try {
     const user = await resolveAuthenticatedUser(req);
     if (!user) {
-      return res.status(401).json({ success: false, error: 'Authentication required' });
+      return res.status(401).json({ success: false, error: 'Authentication required', code: 'SESSION_EXPIRED' });
     }
     if (!user.isStaff) {
       return res.status(403).json({ success: false, error: 'Staff access required' });

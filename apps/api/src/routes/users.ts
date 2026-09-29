@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { db } from '@oneallhost/db';
+import { db, rememberAuthSecrets, attachAuthSecrets } from '@oneallhost/db';
 import { hashPassword, verifyPassword, generateTotpSecret, verifyTotpCode } from '../utils/crypto';
 import { publicUser, requireAuth, signAuthToken } from '../middleware/auth';
 
@@ -29,6 +29,7 @@ userRouter.post('/register', async (req: Request, res: Response) => {
     return res.status(409).json({ error: 'User already exists with this email' });
   }
 
+  const passwordHash = hashPassword(password);
   const newUser = await db.usersRepo.create({
     name: fullName,
     email: targetEmail,
@@ -37,8 +38,9 @@ userRouter.post('/register', async (req: Request, res: Response) => {
     preferredCurrency: 'USD',
     twoFactorEnabled: false,
     kycStatus: 'unverified',
-    passwordHash: hashPassword(password),
+    passwordHash,
   });
+  rememberAuthSecrets(newUser.id, { passwordHash });
 
   return res.status(201).json({
     success: true,
@@ -54,7 +56,8 @@ userRouter.post('/login', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Email and password are required' });
   }
 
-  const user = await db.usersRepo.findByEmail(targetEmail);
+  const raw = await db.usersRepo.findByEmail(targetEmail);
+  const user = raw ? attachAuthSecrets(raw) : undefined;
   if (!user || !user.passwordHash || !verifyPassword(String(password), user.passwordHash)) {
     return res.status(401).json({ error: 'Invalid email or password' });
   }
@@ -100,6 +103,7 @@ userRouter.post('/2fa/enable', async (req: Request, res: Response) => {
   const user = (req as any).user;
   const secret = generateTotpSecret();
   await db.usersRepo.update(user.id, { totpSecret: secret, twoFactorEnabled: false });
+  rememberAuthSecrets(user.id, { totpSecret: secret });
   return res.json({
     success: true,
     secret,
@@ -109,7 +113,8 @@ userRouter.post('/2fa/enable', async (req: Request, res: Response) => {
 });
 
 userRouter.post('/2fa/confirm', async (req: Request, res: Response) => {
-  const user = await db.usersRepo.findById((req as any).user.id);
+  const raw = await db.usersRepo.findById((req as any).user.id);
+  const user = raw ? attachAuthSecrets(raw) : undefined;
   const code = String(req.body?.code || '');
   if (!user?.totpSecret || !verifyTotpCode(user.totpSecret, code)) {
     return res.status(400).json({ error: 'Invalid authenticator code' });

@@ -13,7 +13,7 @@ import { hostingRouter } from './routes/hosting';
 import ticketsRouter from './routes/tickets';
 import { createRateLimiter } from './middleware/rate-limiter';
 import { idempotencyMiddleware } from './middleware/idempotency';
-import { requireStaff } from './middleware/auth';
+import { requireAuth, requireStaff } from './middleware/auth';
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -50,10 +50,19 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 
 app.use(createRateLimiter({ maxRequests: 120, windowMs: 60 * 1000 }));
 
+function requireAuthForDomainWrites(req: Request, res: Response, next: NextFunction) {
+  const path = req.path || '';
+  const publicRead =
+    req.method === 'GET' &&
+    (path.startsWith('/search') || path.startsWith('/whois') || path.startsWith('/dns/probe'));
+  if (publicRead) return next();
+  return requireAuth(req, res, next);
+}
+
 const v1Router = express.Router();
 v1Router.use('/users', userRouter);
 v1Router.use('/admin', requireStaff, adminRouter);
-v1Router.use('/domains', domainRouter);
+v1Router.use('/domains', requireAuthForDomainWrites, domainRouter);
 v1Router.use('/tools', createRateLimiter({ maxRequests: 30, windowMs: 60 * 1000 }), toolsRouter);
 v1Router.use('/rentals', rentalRouter);
 v1Router.use('/payments', paymentRouter);

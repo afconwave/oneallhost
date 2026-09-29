@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "ts-node-dev --respawn src/server.ts",
     "build": "tsc",
-    "start": "node dist/apps/api/src/server.js"
+    "start": "node start.cjs"
   },
   "dependencies": {
     "@oneallhost/db": "*",

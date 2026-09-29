@@ -3,8 +3,23 @@ services:
     name: oneallhost-api
     runtime: node
     rootDir: .
-    buildCommand: npm install -g pnpm && pnpm install --frozen-lockfile && pnpm --filter @oneallhost/api build
-    startCommand: node apps/api/dist/apps/api/src/server.js
+    buildCommand: npm install -g pnpm@10.28.0 && pnpm install --frozen-lockfile && pnpm --filter @oneallhost/db build && pnpm --filter @oneallhost/payments build && pnpm --filter @oneallhost/api build
+    startCommand: node apps/api/start.cjs
+    healthCheckPath: /api/v1/health
     envVars:
       - key: NODE_ENV
         value: production
+      - key: JWT_SECRET
+        sync: false
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false

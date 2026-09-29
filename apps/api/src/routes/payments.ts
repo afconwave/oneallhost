@@ -2,34 +2,14 @@ import { Router, Request, Response } from 'express';
 import { swychrClient, SUPPORTED_AFRICAN_COUNTRIES } from '@oneallhost/payments';
 import { db } from '@oneallhost/db';
 import { sendTransactionEmail } from '../utils/mailer';
+import { requireAuth, requireWebhookSecret } from '../middleware/auth';
 
 export const paymentRouter = Router();
 
-
-// In-memory virtual cards ledger
-const virtualCardsStore: Record<string, any> = {
-  'card-1': {
-    id: 'card-1',
-    cardNumber: '4000 1234 5678 9010',
-    cardHolder: 'ACCOUNT OWNER',
-    expiry: '08/29',
-    cvv: '842',
-    balanceUsd: 250.0,
-    balanceXaf: 153875,
-    brand: 'Visa',
-    status: 'active',
-  },
-};
-
-// 0. Get list of all 18 supported African countries
 paymentRouter.get('/supported-countries', (req: Request, res: Response) => {
-  return res.json({
-    success: true,
-    data: Object.values(SUPPORTED_AFRICAN_COUNTRIES),
-  });
+  return res.json({ success: true, data: Object.values(SUPPORTED_AFRICAN_COUNTRIES) });
 });
 
-// 1. Get live payout & payment methods for a customer country (Swychr Direct API)
 paymentRouter.post('/payout-methods', async (req: Request, res: Response) => {
   try {
     const { country_code = 'CM' } = req.body;
@@ -40,8 +20,7 @@ paymentRouter.post('/payout-methods', async (req: Request, res: Response) => {
   }
 });
 
-// 1b. Get merchant user account information
-paymentRouter.post('/user-info', async (req: Request, res: Response) => {
+paymentRouter.post('/user-info', requireAuth, async (req: Request, res: Response) => {
   try {
     const info = await swychrClient.getUserInfo();
     return res.json(info);
@@ -50,7 +29,6 @@ paymentRouter.post('/user-info', async (req: Request, res: Response) => {
   }
 });
 
-// 1c. Get list of Nigerian banks
 paymentRouter.get('/nigeria-banks', async (req: Request, res: Response) => {
   try {
     const banks = await swychrClient.getNigeriaBanks();
@@ -60,8 +38,7 @@ paymentRouter.get('/nigeria-banks', async (req: Request, res: Response) => {
   }
 });
 
-// 2. Create Direct Payment Request via Swychr / AccountPe
-paymentRouter.post('/create-direct-payment', async (req: Request, res: Response) => {
+paymentRouter.post('/create-direct-payment', requireAuth, async (req: Request, res: Response) => {
   try {
     const {
       country_code = 'CM',
@@ -80,7 +57,6 @@ paymentRouter.post('/create-direct-payment', async (req: Request, res: Response)
     }
 
     const txnId = transaction_id || `ONH-TXN-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
-
     const result = await swychrClient.createPaymentRequest({
       country_code,
       name,
@@ -99,10 +75,8 @@ paymentRouter.post('/create-direct-payment', async (req: Request, res: Response)
     const rate = config ? config.exchangeRate : 615.5;
     const computedUsd = Number((Number(amount) / rate).toFixed(2));
     const computedXaf = Math.round(computedUsd * 615.5);
+    const resolvedUserId = (req as any).user.id;
 
-    const resolvedUserId = (req.body.userId as string) || (req.headers['x-user-id'] as string) || 'guest';
-
-    // Record into live database state as pending
     await db.paymentsRepo.create({
       userId: resolvedUserId,
       client: name,
@@ -114,169 +88,82 @@ paymentRouter.post('/create-direct-payment', async (req: Request, res: Response)
       reference: txnId,
     });
 
-    // Send "Payment Initiated" email
-    if (email) {
-      sendTransactionEmail(
-        email,
-        `Action Required: Complete your Oneallhost Payment (${txnId})`,
-        `<p>Hi ${name},</p>
-         <p>Your payment request of <b>${amount}</b> via <b>${payment_method}</b> has been initiated.</p>
-         <p>Please authorize the prompt on your mobile device.</p>
-         <p>This request will expire in 3 minutes.</p>`
-      );
-    }
-
-    // Schedule 3-minute expiry
-    setTimeout(async () => {
-      try {
-        // Here we'd look up the current state from db
-        // For simplicity, we just mark it as expired if we had a proper update method
-        // Mock update logic:
-        console.log(`[EXPIRY CHECK] Checking status for ${txnId} after 3 minutes...`);
-        // If still pending -> mark expired & notify
-        if (email) {
-          sendTransactionEmail(
-            email,
-            `Payment Expired: ${txnId}`,
-            `<p>Hi ${name},</p>
-             <p>Your payment request of <b>${amount}</b> via <b>${payment_method}</b> has expired because it was not authorized within 3 minutes.</p>
-             <p>Please initiate a new checkout session if you wish to proceed.</p>`
-          );
-        }
-      } catch (err) {
-        console.error('[EXPIRY] Error processing expiry:', err);
-      }
-    }, 3 * 60 * 1000); // 3 minutes
-
     return res.status(result.status || 200).json(result);
   } catch (error: any) {
     return res.status(500).json({ error: error.message || 'Direct payment creation failed' });
   }
 });
 
-// 3. Webhook callback for successful payments (Idempotent settlement)
-paymentRouter.post('/webhook', async (req: Request, res: Response) => {
+paymentRouter.post('/webhook', requireWebhookSecret, async (req: Request, res: Response) => {
   try {
-    const { transaction_id, status, amount } = req.body;
-    console.log(`[Payment Webhook SUCCESS] Transaction ${transaction_id} settled for amount ${amount}`);
-    
-    // In a real app, we'd fetch the transaction to get the user's email
-    // For this demonstration, we'll send a success email to a test account
-    sendTransactionEmail(
-      'customer@example.com',
-      `Payment Successful: ${transaction_id}`,
-      `<p>Your payment of <b>${amount}</b> was successfully processed.</p>
-       <p>Thank you for choosing Oneallhost.</p>`
-    );
-    
-    return res.json({ received: true, transaction_id, status: 'completed' });
+    const transactionId = String(req.body.transaction_id || req.body.reference || '');
+    const incomingStatus = String(req.body.status || 'settled').toLowerCase();
+    if (!transactionId) {
+      return res.status(400).json({ error: 'transaction_id is required' });
+    }
+    const payment = await db.paymentsRepo.findByReference(transactionId);
+    if (!payment) {
+      return res.status(404).json({ error: 'Unknown transaction' });
+    }
+    if (payment.status === 'settled' || payment.status === 'completed') {
+      return res.json({ received: true, transaction_id: transactionId, status: payment.status, replay: true });
+    }
+    const success = ['success', 'successful', 'settled', 'completed', 'paid'].includes(incomingStatus);
+    const nextStatus = success ? 'settled' : 'failed';
+    await db.paymentsRepo.updateStatus(transactionId, nextStatus);
+    if (success && payment.item.toLowerCase().includes('wallet top-up')) {
+      await db.usersRepo.topupBalance(payment.userId, payment.amountUsd, payment.amountXaf);
+    }
+    return res.json({ received: true, transaction_id: transactionId, status: nextStatus });
   } catch (error: any) {
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message || 'Webhook processing failed' });
   }
 });
 
-// Helper for resolving active user id
-const resolveUserId = (req: Request): string => {
-  const authHeader = req.headers.authorization;
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    const token = authHeader.replace('Bearer ', '').trim();
-    const match = token.match(/^onh_jwt_(usr-[a-zA-Z0-9_-]+)/);
-    if (match) return match[1];
-  }
-  return (req.headers['x-user-id'] as string) || (req.query.userId as string) || (req.body?.userId as string) || '';
-};
+const resolveUserId = (req: Request): string => (req as any).user?.id || '';
 
-// 4. Get Saved Payment Methods
+paymentRouter.use(requireAuth);
+
 paymentRouter.get('/methods', async (req: Request, res: Response) => {
   const userId = resolveUserId(req);
   const methods = userId ? await db.paymentMethodsRepo.list(userId) : [];
-  return res.json({
-    success: true,
-    methods,
-  });
+  return res.json({ success: true, methods });
 });
 
-// 5. Add / Save New Payment Card
 paymentRouter.post('/methods', async (req: Request, res: Response) => {
-  try {
-    const userId = resolveUserId(req);
-    if (!userId) {
-      return res.status(401).json({ error: 'Authentication required to save payment method' });
-    }
-
-    const {
-      cardNumber,
-      cardHolder = 'Card Holder',
-      expiry = '12/28',
-      brand,
-      isDefault = false,
-    } = req.body;
-
-    if (!cardNumber) {
-      return res.status(400).json({ error: 'Card number is required' });
-    }
-
-    const cleanCard = cardNumber.replace(/\s+/g, '');
-    const last4 = cleanCard.slice(-4) || '4242';
-
-    // Auto-detect brand from card number prefix if not explicitly provided
-    let detectedBrand = brand;
-    if (!detectedBrand) {
-      if (cleanCard.startsWith('4')) detectedBrand = 'Visa';
-      else if (cleanCard.startsWith('5') || cleanCard.startsWith('2')) detectedBrand = 'Mastercard';
-      else if (cleanCard.startsWith('3')) detectedBrand = 'Amex';
-      else detectedBrand = 'Visa';
-    }
-
-    const newMethod = await db.paymentMethodsRepo.create({
-      userId,
-      type: 'card',
-      cardHolder: cardHolder.toUpperCase(),
-      brand: detectedBrand,
-      last4,
-      expiry,
-      isDefault: Boolean(isDefault),
-    });
-
-    return res.status(201).json({
-      success: true,
-      message: 'Card saved successfully for transactions and automatic renewals',
-      method: newMethod,
-    });
-  } catch (error: any) {
-    return res.status(500).json({ error: error.message || 'Failed to save payment card' });
+  const userId = resolveUserId(req);
+  if (!userId) return res.status(401).json({ error: 'Authentication required to save payment method' });
+  const { cardNumber, cardHolder = 'Card Holder', expiry = '12/28', brand, isDefault = false } = req.body;
+  if (!cardNumber) return res.status(400).json({ error: 'Card number is required' });
+  const cleanCard = String(cardNumber).replace(/\s+/g, '');
+  const last4 = cleanCard.slice(-4) || '0000';
+  let detectedBrand = brand;
+  if (!detectedBrand) {
+    if (cleanCard.startsWith('4')) detectedBrand = 'Visa';
+    else if (cleanCard.startsWith('5') || cleanCard.startsWith('2')) detectedBrand = 'Mastercard';
+    else if (cleanCard.startsWith('3')) detectedBrand = 'Amex';
+    else detectedBrand = 'Card';
   }
+  const newMethod = await db.paymentMethodsRepo.create({
+    userId,
+    type: 'card',
+    cardHolder: String(cardHolder).toUpperCase(),
+    brand: detectedBrand,
+    last4,
+    expiry,
+    isDefault: Boolean(isDefault),
+  });
+  return res.status(201).json({ success: true, method: newMethod });
 });
 
-// 6. Delete / Remove Saved Payment Method
 paymentRouter.delete('/methods/:id', async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const userId = resolveUserId(req);
-  const success = await db.paymentMethodsRepo.delete(id, userId);
-
-  if (!success) {
-    return res.status(404).json({ error: 'Payment method not found' });
-  }
-
-  return res.json({
-    success: true,
-    message: 'Payment method removed successfully',
-  });
+  const success = await db.paymentMethodsRepo.delete(String(req.params.id), resolveUserId(req));
+  if (!success) return res.status(404).json({ error: 'Payment method not found' });
+  return res.json({ success: true, message: 'Payment method removed successfully' });
 });
 
-// 7. Set Default Payment Method
 paymentRouter.put('/methods/:id/default', async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const userId = resolveUserId(req);
-  const updated = await db.paymentMethodsRepo.setDefault(id, userId);
-
-  if (!updated) {
-    return res.status(404).json({ error: 'Payment method not found' });
-  }
-
-  return res.json({
-    success: true,
-    message: 'Default payment method updated',
-    method: updated,
-  });
+  const updated = await db.paymentMethodsRepo.setDefault(String(req.params.id), resolveUserId(req));
+  if (!updated) return res.status(404).json({ error: 'Payment method not found' });
+  return res.json({ success: true, method: updated });
 });

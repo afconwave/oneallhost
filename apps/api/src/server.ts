@@ -6,6 +6,8 @@ import { registerDomainPaid, renewDomainPaid, transferDomainPaid } from './route
 import { rentalRouter } from './routes/rentals';
 import { paymentRouter } from './routes/payments';
 import { invoiceRouter } from './routes/invoices';
+import { receiptsRouter } from './routes/receipts';
+import { sessionsRouter } from './routes/sessions';
 import { healthRouter } from './routes/health';
 import { userRouter } from './routes/users';
 import { adminRouter } from './routes/admin';
@@ -50,6 +52,7 @@ function requireAuthForDomainWrites(req: Request, res: Response, next: NextFunct
 
 const v1Router = express.Router();
 v1Router.use('/users', userRouter);
+v1Router.use('/sessions', sessionsRouter);
 v1Router.use('/admin', requireStaff, adminRouter);
 v1Router.post('/domains/register', requireAuth, registerDomainPaid);
 v1Router.post('/domains/renew', requireAuth, renewDomainPaid);
@@ -60,6 +63,7 @@ v1Router.use('/rentals', rentalRouter);
 v1Router.use('/payments', paymentRouter);
 v1Router.use('/orders', ordersRouter);
 v1Router.use('/invoices', invoiceRouter);
+v1Router.use('/receipts', receiptsRouter);
 v1Router.use('/health', healthRouter);
 v1Router.use('/hosting', hostingRouter);
 v1Router.use('/tickets', ticketsRouter);
@@ -67,18 +71,8 @@ v1Router.use('/tickets', ticketsRouter);
 app.use('/api/v1', v1Router);
 app.use('/api', v1Router);
 
-app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-  const statusCode = err.status || err.statusCode || 500;
-  return res.status(statusCode).json({
-    success: false,
-    error: process.env.NODE_ENV === 'production' && statusCode === 500
-      ? 'An internal server error occurred. Please contact support.'
-      : err.message || 'Internal Server Error',
-  });
-});
-
 app.get('/', (_req: Request, res: Response) => {
-  res.json({ name: 'Oneallhost Backend API Gateway', version: '1.3.1', current_version: 'v1' });
+  res.json({ name: 'Oneallhost Backend API Gateway', version: '1.4.0', current_version: 'v1' });
 });
 
 if (process.env.NODE_ENV !== 'test') {
